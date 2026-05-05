@@ -1,0 +1,16 @@
+# Ignore OS files
+.DS_Store
+
+# Ignore Python virtual environment
+venv/
+__pycache__/
+*.pyc
+
+# Ignore test cache
+.pytest_cache/
+
+# Ignore images/screenshots
+*.png
+*.jpg
+*.jpeg
+*.md
