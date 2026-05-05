@@ -157,10 +157,15 @@ if input_method == "Manual Entry":
         info = var_info[var]
         container = col_left if idx % 2 == 0 else col_right
 
+        # Physical quantities cannot be negative (except deltaP, which can
+        # represent a pressure increase).
+        min_val = 0.0 if var != 'deltaP' else None
+
         val = container.number_input(
             info['label'],
             value=info['default'],
             format=info['format'],
+            min_value=min_val,
             key=f"manual_{var}"
         )
         known_values[var] = val
@@ -319,6 +324,12 @@ if st.button("Calculate", type="primary"):
         np_val  = all_vals.get('Np')  or 0
         bt_val  = all_vals.get('Bt')  or 0
 
+        # Determine the primary drive mechanism.  "Combination Drive" is
+        # reported when both a gas cap AND significant water influx are active.
+        water_is_significant = abs(we_val) > 1e6 or (
+            np_val * bt_val > 0 and abs(we_val) > 0.1 * np_val * bt_val
+        )
+
         if m_val == 0 and we_val == 0:
             mechanism = "Solution Gas Drive"
             explanation = (
@@ -326,15 +337,19 @@ if st.button("Calculate", type="primary"):
                 "and liberation of dissolved gas. Neither a gas cap nor significant "
                 "water influx is contributing to drive energy."
             )
+        elif m_val > 0 and water_is_significant:
+            mechanism = "Combination Drive"
+            explanation = (
+                "Both a gas cap (m > 0) and significant water influx are active, "
+                "providing combined expansion energy that drives oil toward the wellbore."
+            )
         elif m_val > 0:
             mechanism = "Gas Cap Drive"
             explanation = (
                 "A gas cap is present (m > 0) and provides significant expansion "
                 "energy that helps drive oil toward the wellbore."
             )
-        elif abs(we_val) > 1e6 or (
-            np_val * bt_val > 0 and abs(we_val) > 0.1 * np_val * bt_val
-        ):
+        elif water_is_significant:
             mechanism = "Water Drive"
             explanation = (
                 "Significant water influx is observed, indicating that aquifer "
@@ -387,10 +402,19 @@ if st.button("Calculate", type="primary"):
         # --- Summary Data Table ---
         st.subheader("Summary of All Variables")
 
-        table_rows = []
+        # Build two tables: one for display (formatted strings) and one for
+        # export (raw floats) so the CSV opens properly in Excel.
+        display_rows = []
+        export_rows = []
         for var in all_vars:
             val = all_vals.get(var)
             info = var_info[var]
+
+            status = (
+                'Target' if var == target_var
+                else ('Forced Zero' if (forced_zeros and var in forced_zeros)
+                      else 'Input')
+            )
 
             if val is None:
                 val_str = "—"
@@ -403,23 +427,27 @@ if st.button("Calculate", type="primary"):
             else:
                 val_str = f"{val:,.4f}"
 
-            table_rows.append({
+            display_rows.append({
                 'Variable': var,
                 'Description': info['label'].split(' – ')[-1],
                 'Value': val_str,
-                'Status': (
-                    'Target' if var == target_var
-                    else ('Forced Zero' if (forced_zeros and var in forced_zeros)
-                          else 'Input')
-                )
+                'Status': status
             })
 
-        df_summary = pd.DataFrame(table_rows)
+            export_rows.append({
+                'Variable': var,
+                'Description': info['label'].split(' – ')[-1],
+                'Value': val,
+                'Status': status
+            })
+
+        df_summary = pd.DataFrame(display_rows)
         st.dataframe(df_summary, use_container_width=True, hide_index=True)
 
         # --- Export / Download Results ---
         st.subheader("Export Results")
-        csv_data = df_summary.to_csv(index=False).encode('utf-8')
+        df_export = pd.DataFrame(export_rows)
+        csv_data = df_export.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="Download Summary as CSV",
             data=csv_data,
