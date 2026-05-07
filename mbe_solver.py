@@ -12,16 +12,7 @@ iterative numerical fallback (via sympy.nsolve) for non-linear cases.
 
 import sympy as sp
 import numpy as np
-
-# =============================================================================
-# 1. Define all SymPy symbols for the General MBE variables
-# =============================================================================
-# Each symbol represents a physical quantity in the reservoir engineering MBE.
-# Using symbolic variables allows SymPy to rearrange and solve the equation
-# for ANY one of them, without hard-coding separate formulas.
-N, Np, Bt, Bti, Rp, Rsi, Bg, Bgi, We, Wp, Bw, m, Swi, cw, cf, deltaP = sp.symbols(
-    'N Np Bt Bti Rp Rsi Bg Bgi We Wp Bw m Swi cw cf deltaP'
-)
+from config import SYMBOLS, N, Np, Bt, Bti, Rp, Rsi, Bg, Bgi, We, Wp, Bw, m, Swi, cw, cf, deltaP
 
 # =============================================================================
 # 2. Define the General MBE equation components
@@ -52,13 +43,6 @@ denominator = base_denominator + expansion_term
 # This avoids maintaining four separate explicit formulas.
 MBE_IMPLICIT = N * denominator - numerator
 
-# Symbol lookup table: maps string names to SymPy symbol objects.
-# Used throughout the solver for quick variable access by name.
-SYMBOLS = {
-    'N': N, 'Np': Np, 'Bt': Bt, 'Bti': Bti, 'Rp': Rp, 'Rsi': Rsi,
-    'Bg': Bg, 'Bgi': Bgi, 'We': We, 'Wp': Wp, 'Bw': Bw, 'm': m,
-    'Swi': Swi, 'cw': cw, 'cf': cf, 'deltaP': deltaP
-}
 
 
 def solve_mbe(target_var: str, known_values: dict, forced_zeros: list = None) -> dict:

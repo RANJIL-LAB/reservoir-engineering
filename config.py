@@ -1,0 +1,39 @@
+"""
+config.py — Centralized constants and symbols for the MBE application.
+
+Shared constants extracted from app.py and mbe_solver.py so that both
+modules (and any future modules) reference a single source of truth.
+"""
+
+import sympy as sp
+
+var_info = {
+    'N':     {'label': 'N – Initial Oil-In-Place (STB)',                'default': 0.0,    'format': '%.2f'},
+    'Np':    {'label': 'Np – Cumulative Oil Produced (STB)',            'default': 0.0,    'format': '%.2f'},
+    'Bt':    {'label': 'Bt – Current Two-Phase FVF (bbl/STB)',          'default': 1.0,    'format': '%.4f'},
+    'Bti':   {'label': 'Bti – Initial Two-Phase FVF (bbl/STB)',         'default': 1.0,    'format': '%.4f'},
+    'Rp':    {'label': 'Rp – Cumulative Produced GOR (scf/STB)',        'default': 0.0,    'format': '%.2f'},
+    'Rsi':   {'label': 'Rsi – Initial Solution GOR (scf/STB)',          'default': 0.0,    'format': '%.2f'},
+    'Bg':    {'label': 'Bg – Current Gas FVF (bbl/scf)',                'default': 0.001,  'format': '%.6f'},
+    'Bgi':   {'label': 'Bgi – Initial Gas FVF (bbl/scf)',               'default': 0.001,  'format': '%.6f'},
+    'We':    {'label': 'We – Cumulative Water Influx (bbl)',            'default': 0.0,    'format': '%.2f'},
+    'Wp':    {'label': 'Wp – Cumulative Water Produced (bbl)',          'default': 0.0,    'format': '%.2f'},
+    'Bw':    {'label': 'Bw – Water FVF (bbl/STB)',                      'default': 1.0,    'format': '%.4f'},
+    'm':     {'label': 'm – Gas Cap Ratio (dimensionless)',             'default': 0.0,    'format': '%.4f'},
+    'Swi':   {'label': 'Swi – Initial Water Saturation (decimal)',      'default': 0.2,    'format': '%.4f'},
+    'cw':    {'label': 'cw – Water Compressibility (psi⁻¹)',            'default': 0.0,    'format': '%.2e'},
+    'cf':    {'label': 'cf – Formation Compressibility (psi⁻¹)',        'default': 0.0,    'format': '%.2e'},
+    'deltaP':{'label': 'ΔP – Change in Pressure (psi)',                 'default': 0.0,    'format': '%.2f'},
+}
+
+all_vars = list(var_info.keys())
+
+N, Np, Bt, Bti, Rp, Rsi, Bg, Bgi, We, Wp, Bw, m, Swi, cw, cf, deltaP = sp.symbols(
+    'N Np Bt Bti Rp Rsi Bg Bgi We Wp Bw m Swi cw cf deltaP'
+)
+
+SYMBOLS = {
+    'N': N, 'Np': Np, 'Bt': Bt, 'Bti': Bti, 'Rp': Rp, 'Rsi': Rsi,
+    'Bg': Bg, 'Bgi': Bgi, 'We': We, 'Wp': Wp, 'Bw': Bw, 'm': m,
+    'Swi': Swi, 'cw': cw, 'cf': cf, 'deltaP': deltaP,
+}

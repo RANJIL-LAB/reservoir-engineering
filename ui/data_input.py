@@ -1,0 +1,104 @@
+import streamlit as st
+import pandas as pd
+
+
+def render_manual_input(var_info: dict, target_var: str, forced_zeros: list, is_unsaturated: bool) -> dict:
+    st.subheader("Enter Known Variables")
+
+    col_left, col_right = st.columns(2)
+
+    display_order = ['N', 'Np', 'Bt', 'Bti', 'Rsi', 'Rp', 'Bg', 'Bgi',
+                     'We', 'Wp', 'Bw', 'm', 'Swi', 'cw', 'cf', 'deltaP']
+
+    known_values = {}
+    for idx, var in enumerate(display_order):
+        if var == target_var:
+            continue
+        if var in forced_zeros:
+            continue
+        if is_unsaturated and var == 'Rp':
+            continue
+
+        info = var_info[var]
+        container = col_left if idx % 2 == 0 else col_right
+        min_val = 0.0 if var != 'deltaP' else None
+
+        val = container.number_input(
+            info['label'],
+            value=info['default'],
+            format=info['format'],
+            min_value=min_val,
+            key=f"manual_{var}"
+        )
+        known_values[var] = val
+
+    if is_unsaturated:
+        if 'Rsi' in known_values:
+            known_values['Rp'] = known_values['Rsi']
+        else:
+            known_values['Rp'] = 0.0
+
+    return {'known_values': known_values}
+
+
+def render_file_upload(var_info: dict, target_var: str, forced_zeros: list, is_unsaturated: bool) -> dict:
+    st.subheader("Upload Data File")
+
+    uploaded_file = st.file_uploader(
+        "Upload CSV or Excel file",
+        type=['csv', 'xlsx', 'xls']
+    )
+
+    if uploaded_file is None:
+        st.info("Please upload a file to proceed.")
+        return {'known_values': {}, 'df': None, 'col_map': {}}
+
+    if uploaded_file.name.endswith('.csv'):
+        df = pd.read_csv(uploaded_file)
+    else:
+        df = pd.read_excel(uploaded_file)
+
+    st.success(
+        f"Loaded file: {len(df)} row(s), "
+        f"columns: {', '.join(df.columns.astype(str))}"
+    )
+
+    col_map = {}
+    for col in df.columns:
+        col_clean = col.strip().lower()
+        for var in var_info.keys():
+            if col_clean == var.lower():
+                col_map[var] = col
+                break
+
+    if col_map:
+        st.write("**Mapped columns:**")
+        st.json(col_map)
+    else:
+        st.warning(
+            "No recognized columns found. Expected one of: "
+            + ", ".join(var_info.keys())
+        )
+
+    if len(df) > 1:
+        st.info("Multi-row file detected – time-series charts will be generated below.")
+
+    known_values = {}
+    for var, col in col_map.items():
+        if var == target_var:
+            continue
+        if var in forced_zeros:
+            continue
+
+        try:
+            known_values[var] = float(df[col].iloc[0])
+        except Exception:
+            st.warning(f"Could not read value for '{var}' from column '{col}'.")
+
+    if is_unsaturated:
+        if 'Rsi' in known_values:
+            known_values['Rp'] = known_values['Rsi']
+        elif 'Rp' in known_values and 'Rsi' not in known_values:
+            known_values['Rsi'] = known_values['Rp']
+
+    return {'known_values': known_values, 'df': df, 'col_map': col_map}
