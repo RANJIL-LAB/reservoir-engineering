@@ -146,7 +146,9 @@ def solve_mbe(target_var: str, known_values: dict, forced_zeros: list = None) ->
         if abs(swi_val * cw_val + cf_val) < 1e-12:
             # Expansion term is 0 in the limit; solve using the reduced
             # implicit equation that omits the expansion term entirely.
-            expr_to_solve = (N * base_denominator - numerator).subs(substitutions)
+            expr_to_solve = N * base_denominator - numerator
+            for sym, val in substitutions.items():
+                expr_to_solve = expr_to_solve.subs(sym, val)
         else:
             return {
                 'success': False,
@@ -158,8 +160,13 @@ def solve_mbe(target_var: str, known_values: dict, forced_zeros: list = None) ->
                 'all_values': {}
             }
     else:
-        # Standard path: substitute everything into the full implicit equation.
-        expr_to_solve = MBE_IMPLICIT.subs(substitutions)
+        # Standard path: substitute iteratively so that variables that
+        # collapse terms (e.g. m=0) are processed before variables that
+        # could cause division by zero inside those collapsed terms
+        # (e.g. Bgi=0 inside m * (Bg/Bgi - 1)).
+        expr_to_solve = MBE_IMPLICIT
+        for sym, val in substitutions.items():
+            expr_to_solve = expr_to_solve.subs(sym, val)
 
     # ------------------------------------------------------------------
     # Simplify the substituted expression and guard against symbolic

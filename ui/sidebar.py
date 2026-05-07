@@ -39,7 +39,7 @@ def render_sidebar() -> dict:
         forced_zeros.extend(['cw', 'cf', 'Swi'])
         if target_var != 'deltaP':
             forced_zeros.append('deltaP')
-    forced_zeros = list(set(forced_zeros))
+    forced_zeros = list(dict.fromkeys(forced_zeros))
 
     return {
         'target_var': target_var,
