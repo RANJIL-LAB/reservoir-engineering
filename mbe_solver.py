@@ -364,7 +364,10 @@ def compute_drive_indices(all_values: dict) -> dict:
     oil_term = abs(N_val * (Bt_val - Bti_val))
 
     # 2. Gas-cap expansion energy [bbl]
-    gas_cap_term = abs(N_val * m_val * Bti_val * (Bg_val / Bgi_val - 1))
+    if abs(Bgi_val) < 1e-12:
+        gas_cap_term = 0.0
+    else:
+        gas_cap_term = abs(N_val * m_val * Bti_val * (Bg_val / Bgi_val - 1))
 
     # 3. Rock & connate-water expansion energy [bbl]
     #    Guard against division by zero when Swi == 1.
