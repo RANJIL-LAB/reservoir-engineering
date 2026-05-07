@@ -325,7 +325,7 @@ _example_button("▶️ Load Tutorial 4 in Calculator", {
 
 st.header("4. Understanding the Results")
 
-st.markdown("""
+st.markdown(r"""
 After clicking Calculate (or arriving from a tutorial link), the page scrolls
 down to the Results section. Here's what you see, in order:
 
@@ -486,7 +486,7 @@ N = \frac{
     + B_{ti} (1 + m) \left( \frac{S_{wi} c_w + c_f}{1 - S_{wi}} \right) \Delta P
 }
 """)
-st.markdown("""
+st.markdown(r"""
 
 **Top (numerator):** Everything that came out of the reservoir minus what came in.
 - $N_p B_t$ — produced oil, converted to reservoir volume
@@ -522,7 +522,7 @@ so you know which checkboxes to turn on or off.
 
 st.subheader("The Havlena-Odeh Method")
 
-st.markdown("""
+st.markdown(r"""
 The Havlena-Odeh method rearranges the MBE into a straight-line form:
 
 $F = N \times E_t$
