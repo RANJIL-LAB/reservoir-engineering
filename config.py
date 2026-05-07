@@ -24,16 +24,23 @@ var_info = {
     'cw':    {'label': 'cw – Water Compressibility (psi⁻¹)',            'default': 0.0,    'format': '%.2e'},
     'cf':    {'label': 'cf – Formation Compressibility (psi⁻¹)',        'default': 0.0,    'format': '%.2e'},
     'deltaP':{'label': 'ΔP – Change in Pressure (psi)',                 'default': 0.0,    'format': '%.2f'},
+    'G':     {'label': 'G – Initial Gas-In-Place (Mscf)',               'default': 0.0,    'format': '%.2f'},
+    'Gp':    {'label': 'Gp – Cumulative Gas Produced (Mscf)',           'default': 0.0,    'format': '%.2f'},
 }
 
 all_vars = list(var_info.keys())
 
-N, Np, Bt, Bti, Rp, Rsi, Bg, Bgi, We, Wp, Bw, m, Swi, cw, cf, deltaP = sp.symbols(
-    'N Np Bt Bti Rp Rsi Bg Bgi We Wp Bw m Swi cw cf deltaP'
+OIL_VARS = ['N', 'Np', 'Bt', 'Bti', 'Rp', 'Rsi', 'Bg', 'Bgi',
+            'We', 'Wp', 'Bw', 'm', 'Swi', 'cw', 'cf', 'deltaP']
+GAS_VARS = ['G', 'Gp', 'Bg', 'Bgi', 'We', 'Wp', 'Bw']
+
+N, Np, Bt, Bti, Rp, Rsi, Bg, Bgi, We, Wp, Bw, m, Swi, cw, cf, deltaP, G, Gp = sp.symbols(
+    'N Np Bt Bti Rp Rsi Bg Bgi We Wp Bw m Swi cw cf deltaP G Gp'
 )
 
 SYMBOLS = {
     'N': N, 'Np': Np, 'Bt': Bt, 'Bti': Bti, 'Rp': Rp, 'Rsi': Rsi,
     'Bg': Bg, 'Bgi': Bgi, 'We': We, 'Wp': Wp, 'Bw': Bw, 'm': m,
     'Swi': Swi, 'cw': cw, 'cf': cf, 'deltaP': deltaP,
+    'G': G, 'Gp': Gp,
 }

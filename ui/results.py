@@ -16,6 +16,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from mbe_solver import compute_drive_indices
+from config import OIL_VARS, GAS_VARS
 
 
 def render_results(
@@ -26,7 +27,10 @@ def render_results(
     t_elapsed: float,
     var_info: dict,
     all_vars: list,
+    fluid_type: str = 'oil',
 ) -> None:
+    is_gas = (fluid_type == 'gas')
+
     if not result['success']:
         st.error(f"Calculation failed: {result['error_message']}")
         return
@@ -46,6 +50,10 @@ def render_results(
         display_str = f"{res:.4f} (dimensionless)"
     elif target_var == 'deltaP':
         display_str = f"{res:,.2f} psi"
+    elif target_var == 'G':
+        display_str = f"{res:,.2f} Mscf"
+        if abs(res) >= 1e6:
+            display_str += f" &nbsp;|&nbsp; **{res/1e6:.2f} MMscf**"
     else:
         display_str = f"{res}"
 
@@ -54,105 +62,126 @@ def render_results(
         unsafe_allow_html=True,
     )
 
-    N_val = all_vals.get('N')
-    Np_val = all_vals.get('Np')
-    if N_val is not None and N_val != 0:
-        rf = (Np_val / N_val) * 100
-        st.markdown(
-            f"<h3 style='color:#2ca02c;'>Recovery Factor (Rf) = {rf:.2f}%</h3>",
-            unsafe_allow_html=True,
-        )
+    if not is_gas:
+        N_val = all_vals.get('N')
+        Np_val = all_vals.get('Np')
+        if N_val is not None and N_val != 0:
+            rf = (Np_val / N_val) * 100
+            st.markdown(
+                f"<h3 style='color:#2ca02c;'>Recovery Factor (Rf) = {rf:.2f}%</h3>",
+                unsafe_allow_html=True,
+            )
 
     st.subheader("Drive Mechanism Analysis")
 
-    m_val = all_vals.get('m') or 0
-    we_val = all_vals.get('We') or 0
-    np_val = all_vals.get('Np') or 0
-    bt_val = all_vals.get('Bt') or 0
-
-    water_is_significant = abs(we_val) > 1e6 or (
-        np_val * bt_val > 0 and abs(we_val) > 0.1 * np_val * bt_val
-    )
-
-    if m_val == 0 and we_val == 0:
-        mechanism = "Solution Gas Drive"
-        explanation = (
-            "The reservoir is producing primarily due to expansion of the oil "
-            "and liberation of dissolved gas. Neither a gas cap nor significant "
-            "water influx is contributing to drive energy. "
-            "Expect recovery factors to be low (15-25%) unless secondary "
-            "recovery is implemented."
-        )
-    elif m_val > 0 and water_is_significant:
-        mechanism = "Combination Drive"
-        explanation = (
-            "Both a gas cap (m > 0) and significant water influx are active, "
-            "providing combined expansion energy that drives oil toward the wellbore."
-        )
-    elif m_val > 0:
-        mechanism = "Gas Cap Drive"
-        explanation = (
-            "A gas cap is present (m > 0) and provides significant expansion "
-            "energy that helps drive oil toward the wellbore. "
-            "Gas Cap is the primary engine. Avoid producing gas from the top "
-            "of the reservoir to save this energy."
-        )
-    elif water_is_significant:
-        mechanism = "Water Drive"
-        explanation = (
-            "Significant water influx is observed, indicating that aquifer "
-            "expansion is the primary source of reservoir drive energy. "
-            "Strong Aquifer present. This means high recovery but a risk of "
-            "early water breakthrough in the wells."
-        )
+    if is_gas:
+        we_val = all_vals.get('We') or 0
+        if we_val == 0:
+            mechanism = "Volumetric Depletion"
+            explanation = (
+                "The gas reservoir is producing by gas expansion only. "
+                "No water influx is contributing. This is the simplest "
+                "gas reservoir behavior."
+            )
+        else:
+            mechanism = "Water Drive"
+            explanation = (
+                "Significant water influx is observed, indicating that aquifer "
+                "expansion is contributing to reservoir drive energy. "
+                "Strong Aquifer present. Watch for water breakthrough."
+            )
     else:
-        mechanism = "Solution Gas Drive"
-        explanation = (
-            "The reservoir is producing primarily due to expansion of the oil "
-            "and liberation of dissolved gas. "
-            "Expect recovery factors to be low (15-25%) unless secondary "
-            "recovery is implemented."
+        m_val = all_vals.get('m') or 0
+        we_val = all_vals.get('We') or 0
+        np_val = all_vals.get('Np') or 0
+        bt_val = all_vals.get('Bt') or 0
+
+        water_is_significant = abs(we_val) > 1e6 or (
+            np_val * bt_val > 0 and abs(we_val) > 0.1 * np_val * bt_val
         )
+
+        if m_val == 0 and we_val == 0:
+            mechanism = "Solution Gas Drive"
+            explanation = (
+                "The reservoir is producing primarily due to expansion of the oil "
+                "and liberation of dissolved gas. Neither a gas cap nor significant "
+                "water influx is contributing to drive energy. "
+                "Expect recovery factors to be low (15-25%) unless secondary "
+                "recovery is implemented."
+            )
+        elif m_val > 0 and water_is_significant:
+            mechanism = "Combination Drive"
+            explanation = (
+                "Both a gas cap (m > 0) and significant water influx are active, "
+                "providing combined expansion energy that drives oil toward the wellbore."
+            )
+        elif m_val > 0:
+            mechanism = "Gas Cap Drive"
+            explanation = (
+                "A gas cap is present (m > 0) and provides significant expansion "
+                "energy that helps drive oil toward the wellbore. "
+                "Gas Cap is the primary engine. Avoid producing gas from the top "
+                "of the reservoir to save this energy."
+            )
+        elif water_is_significant:
+            mechanism = "Water Drive"
+            explanation = (
+                "Significant water influx is observed, indicating that aquifer "
+                "expansion is the primary source of reservoir drive energy. "
+                "Strong Aquifer present. This means high recovery but a risk of "
+                "early water breakthrough in the wells."
+            )
+        else:
+            mechanism = "Solution Gas Drive"
+            explanation = (
+                "The reservoir is producing primarily due to expansion of the oil "
+                "and liberation of dissolved gas. "
+                "Expect recovery factors to be low (15-25%) unless secondary "
+                "recovery is implemented."
+            )
 
     st.markdown(f"**Primary Drive Mechanism: {mechanism}**")
     st.caption(explanation)
 
-    st.subheader("Expert Insights & Recommendations")
+    if not is_gas:
+        st.subheader("Expert Insights & Recommendations")
 
-    Rp_val = all_vals.get('Rp')
-    Rsi_val = all_vals.get('Rsi')
-    deltaP_val = all_vals.get('deltaP')
-    Np_val_expert = all_vals.get('Np')
+        Rp_val = all_vals.get('Rp')
+        Rsi_val = all_vals.get('Rsi')
+        deltaP_val = all_vals.get('deltaP')
+        Np_val_expert = all_vals.get('Np')
+        m_val = all_vals.get('m', 0)
+        we_val = all_vals.get('We', 0)
 
-    if target_var == 'deltaP' and Np_val_expert is not None and Np_val_expert > 0:
-        st.warning(
-            "Unsaturated Reservoir interpretation: The reservoir is 'tight' or "
-            "has very little natural energy. Pressure will likely hit the "
-            "bubble point soon."
+        if target_var == 'deltaP' and Np_val_expert is not None and Np_val_expert > 0:
+            st.warning(
+                "Unsaturated Reservoir interpretation: The reservoir is 'tight' or "
+                "has very little natural energy. Pressure will likely hit the "
+                "bubble point soon."
+            )
+
+        if m_val == 0 and we_val == 0 and Rp_val is not None and Rsi_val is not None and Rp_val == Rsi_val:
+            st.warning(
+                "Rock and Fluid Expansion is the only energy source. "
+                "This is the least efficient drive."
+            )
+
+        if Rp_val is not None and Rsi_val is not None and Rp_val > Rsi_val:
+            st.warning(
+                "The reservoir has developed Secondary Gas Saturation. "
+                "You are losing your 'pressure engine' through the wellbore."
+            )
+
+        st.info(
+            "Tip for Trend Analysis: To verify your assumed Drive Mechanisms "
+            "(m and We), plot N over time. A Constant N means assumptions are "
+            "correct. An Increasing N means an unaccounted energy source "
+            "(larger aquifer/gas cap). A Decreasing N means you are "
+            "overestimating the energy."
         )
-
-    if m_val == 0 and we_val == 0 and Rp_val is not None and Rsi_val is not None and Rp_val == Rsi_val:
-        st.warning(
-            "Rock and Fluid Expansion is the only energy source. "
-            "This is the least efficient drive."
-        )
-
-    if Rp_val is not None and Rsi_val is not None and Rp_val > Rsi_val:
-        st.warning(
-            "The reservoir has developed Secondary Gas Saturation. "
-            "You are losing your 'pressure engine' through the wellbore."
-        )
-
-    st.info(
-        "Tip for Trend Analysis: To verify your assumed Drive Mechanisms "
-        "(m and We), plot N over time. A Constant N means assumptions are "
-        "correct. An Increasing N means an unaccounted energy source "
-        "(larger aquifer/gas cap). A Decreasing N means you are "
-        "overestimating the energy."
-    )
 
     st.subheader("Drive Indices (Energy Contribution)")
-    drive_data = compute_drive_indices(all_vals)
+    drive_data = compute_drive_indices(all_vals, fluid_type)
 
     if sum(drive_data['raw']) > 0:
         fig = go.Figure(
@@ -185,9 +214,10 @@ def render_results(
 
     st.subheader("Summary of All Variables")
 
+    vars_to_display = GAS_VARS if is_gas else OIL_VARS
     display_rows = []
     export_rows = []
-    for var in all_vars:
+    for var in vars_to_display:
         val = all_vals.get(var)
         info = var_info[var]
 

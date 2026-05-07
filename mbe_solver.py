@@ -12,7 +12,8 @@ iterative numerical fallback (via sympy.nsolve) for non-linear cases.
 
 import sympy as sp
 import numpy as np
-from config import SYMBOLS, N, Np, Bt, Bti, Rp, Rsi, Bg, Bgi, We, Wp, Bw, m, Swi, cw, cf, deltaP
+from config import SYMBOLS, N, Np, Bt, Bti, Rp, Rsi, Bg, Bgi, We, Wp, Bw, m, Swi, cw, cf, deltaP, G, Gp
+from config import OIL_VARS, GAS_VARS
 
 # =============================================================================
 # 2. Define the General MBE equation components
@@ -43,9 +44,21 @@ denominator = base_denominator + expansion_term
 # This avoids maintaining four separate explicit formulas.
 MBE_IMPLICIT = N * denominator - numerator
 
+# ------------------------------------------------------------------------------
+# Gas MBE (Volumetric Depletion / Water Drive)
+# ------------------------------------------------------------------------------
+#   G * (Bg - Bgi) = Gp * Bg - (We - Wp * Bw)
+#
+# Where:
+#   - G  = Initial Gas-In-Place (Mscf)
+#   - Gp = Cumulative Gas Produced (Mscf)
+#
+# Implicit form:  G * (Bg - Bgi) - Gp * Bg + (We - Wp * Bw) = 0
+GAS_MBE_IMPLICIT = G * (Bg - Bgi) - Gp * Bg + (We - Wp * Bw)
 
 
-def solve_mbe(target_var: str, known_values: dict, forced_zeros: list = None) -> dict:
+
+def solve_mbe(target_var: str, known_values: dict, forced_zeros: list = None, fluid_type: str = 'oil') -> dict:
     """
     Solve the General Material Balance Equation for a single target variable.
 
@@ -56,7 +69,7 @@ def solve_mbe(target_var: str, known_values: dict, forced_zeros: list = None) ->
     ----------
     target_var : str
         Name of the variable to solve for.  Must be one of the keys in SYMBOLS
-        (e.g. 'N', 'We', 'm', 'deltaP').
+        (e.g. 'N', 'We', 'm', 'deltaP' for oil; 'G', 'We' for gas).
     known_values : dict
         Mapping of variable names (str) to float values.  These are the inputs
         provided by the user (either manually or from a file).
@@ -64,6 +77,8 @@ def solve_mbe(target_var: str, known_values: dict, forced_zeros: list = None) ->
         List of variable names that should be treated as 0 because the
         corresponding drive mechanism has been turned off in the UI
         (e.g. ['cw', 'cf'] when rock/fluid expansion is inactive).
+    fluid_type : str, optional
+        'oil' or 'gas'.  Determines which MBE formulation to use.
 
     Returns
     -------
@@ -75,6 +90,8 @@ def solve_mbe(target_var: str, known_values: dict, forced_zeros: list = None) ->
             'all_values': dict             # Every variable's final numeric value
         }
     """
+    is_gas = (fluid_type == 'gas')
+
     # ------------------------------------------------------------------
     # Validate target variable exists in our symbol table
     # ------------------------------------------------------------------
@@ -114,11 +131,12 @@ def solve_mbe(target_var: str, known_values: dict, forced_zeros: list = None) ->
     substitutions.pop(target_symbol, None)
 
     # ------------------------------------------------------------------
-    # d. Verify that every NON-target variable now has a numeric value.
-    #    If anything is still missing, we cannot solve the equation.
+    # d. Verify that every variable relevant to this fluid type has a value.
     # ------------------------------------------------------------------
+    relevant_vars = GAS_VARS if is_gas else OIL_VARS
     missing = []
-    for name, sym in SYMBOLS.items():
+    for name in relevant_vars:
+        sym = SYMBOLS[name]
         if name != target_var and sym not in substitutions:
             missing.append(name)
 
@@ -133,19 +151,20 @@ def solve_mbe(target_var: str, known_values: dict, forced_zeros: list = None) ->
         }
 
     # ------------------------------------------------------------------
+    # Choose the appropriate implicit equation for this fluid type.
+    # ------------------------------------------------------------------
+    implicit_eq = GAS_MBE_IMPLICIT if is_gas else MBE_IMPLICIT
+
+    # ------------------------------------------------------------------
     # Edge-case guard: Swi = 1 creates division by zero in the expansion
     # term because of the (1 - Swi) denominator.
-    # If the numerator of the expansion term is ALSO zero, the whole term
-    # vanishes in the physical limit and we can drop it safely.
-    # Otherwise the inputs are physically impossible.
+    # Only relevant for oil reservoirs.
     # ------------------------------------------------------------------
-    if Swi in substitutions and substitutions[Swi] == 1.0:
+    if not is_gas and Swi in substitutions and substitutions[Swi] == 1.0:
         swi_val = substitutions[Swi]
         cw_val = substitutions.get(cw, 0.0)
         cf_val = substitutions.get(cf, 0.0)
         if abs(swi_val * cw_val + cf_val) < 1e-12:
-            # Expansion term is 0 in the limit; solve using the reduced
-            # implicit equation that omits the expansion term entirely.
             expr_to_solve = N * base_denominator - numerator
             for sym, val in substitutions.items():
                 expr_to_solve = expr_to_solve.subs(sym, val)
@@ -164,7 +183,7 @@ def solve_mbe(target_var: str, known_values: dict, forced_zeros: list = None) ->
         # collapse terms (e.g. m=0) are processed before variables that
         # could cause division by zero inside those collapsed terms
         # (e.g. Bgi=0 inside m * (Bg/Bgi - 1)).
-        expr_to_solve = MBE_IMPLICIT
+        expr_to_solve = implicit_eq
         for sym, val in substitutions.items():
             expr_to_solve = expr_to_solve.subs(sym, val)
 
@@ -296,11 +315,13 @@ def solve_mbe(target_var: str, known_values: dict, forced_zeros: list = None) ->
     #    the substituted numeric value that was used during solving.
     # ------------------------------------------------------------------
     all_values = {}
-    for name, sym in SYMBOLS.items():
+    all_symbols = GAS_VARS if is_gas else OIL_VARS
+    for name in all_symbols:
+        sym = SYMBOLS[name]
         if name == target_var:
             all_values[name] = result
         else:
-            all_values[name] = substitutions[sym]
+            all_values[name] = substitutions.get(sym, 0.0)
 
     return {
         'success': True,
@@ -310,12 +331,12 @@ def solve_mbe(target_var: str, known_values: dict, forced_zeros: list = None) ->
     }
 
 
-def compute_drive_indices(all_values: dict) -> dict:
+def compute_drive_indices(all_values: dict, fluid_type: str = 'oil') -> dict:
     """
     Compute approximate drive-index contributions for visualization.
 
-    The MBE denominator contains three distinct physical mechanisms that
-    provide the energy pushing oil out of the reservoir:
+    For oil reservoirs, the MBE denominator contains three distinct physical
+    mechanisms that provide the energy pushing oil out of the reservoir:
 
       1. Oil shrinkage / solution-gas drive :  (Bt - Bti)
       2. Gas-cap expansion                  :  m * Bti * (Bg/Bgi - 1)
@@ -323,6 +344,10 @@ def compute_drive_indices(all_values: dict) -> dict:
 
     In addition, the net water influx (We - Wp*Bw) appears in the numerator
     and represents energy supplied from an aquifer.
+
+    For gas reservoirs:
+      1. Gas expansion : G * (Bg - Bgi)
+      2. Net water influx : |We - Wp * Bw|
 
     This function evaluates the absolute magnitude of each term using the
     final variable values, then normalises them to percentages so they can
@@ -332,7 +357,8 @@ def compute_drive_indices(all_values: dict) -> dict:
     ----------
     all_values : dict
         Dictionary mapping variable names (str) to their final numeric values.
-        Must contain at least the keys required by the MBE denominator.
+    fluid_type : str, optional
+        'oil' or 'gas'.  Determines which drive mechanism labels to use.
 
     Returns
     -------
@@ -343,61 +369,81 @@ def compute_drive_indices(all_values: dict) -> dict:
             'raw':      list of float (absolute magnitudes of each term)
         }
     """
-    # Extract numeric values; default to 0 if a key is missing.
-    N_val = all_values.get('N', 0)
-    m_val = all_values.get('m', 0)
-    Bt_val = all_values.get('Bt', 0)
-    Bti_val = all_values.get('Bti', 0)
-    Bg_val = all_values.get('Bg', 0)
-    Bgi_val = all_values.get('Bgi', 0)
-    Swi_val = all_values.get('Swi', 0)
-    cw_val = all_values.get('cw', 0)
-    cf_val = all_values.get('cf', 0)
-    deltaP_val = all_values.get('deltaP', 0)
-    We_val = all_values.get('We', 0)
-    Wp_val = all_values.get('Wp', 0)
-    Bw_val = all_values.get('Bw', 0)
+    is_gas = (fluid_type == 'gas')
 
-    # --- Compute absolute magnitudes of each drive term ---
-    #
-    # The denominator terms (oil shrinkage, gas-cap expansion, rock/water
-    # expansion) are expressed in FVF units (bbl/STB).  To compare them
-    # with the water-influx term (which is in bbl), we multiply each
-    # denominator term by N [STB], yielding consistent bbl units.
-    #
-    # This gives the actual volume of fluid displaced by each mechanism.
+    if is_gas:
+        G_val = all_values.get('G', 0)
+        Gp_val = all_values.get('Gp', 0)
+        Bg_val = all_values.get('Bg', 0)
+        Bgi_val = all_values.get('Bgi', 0)
+        We_val = all_values.get('We', 0)
+        Wp_val = all_values.get('Wp', 0)
+        Bw_val = all_values.get('Bw', 0)
 
-    # 1. Oil shrinkage / solution-gas expansion energy [bbl]
-    oil_term = abs(N_val * (Bt_val - Bti_val))
+        gas_expansion = abs(G_val * (Bg_val - Bgi_val))
+        water_term = abs(We_val - Wp_val * Bw_val)
 
-    # 2. Gas-cap expansion energy [bbl]
-    if abs(Bgi_val) < 1e-12:
-        gas_cap_term = 0.0
+        labels = [
+            "Gas Expansion",
+            "Net Water Influx",
+        ]
+        raw_values = [gas_expansion, water_term]
     else:
-        gas_cap_term = abs(N_val * m_val * Bti_val * (Bg_val / Bgi_val - 1))
+        # Extract numeric values; default to 0 if a key is missing.
+        N_val = all_values.get('N', 0)
+        m_val = all_values.get('m', 0)
+        Bt_val = all_values.get('Bt', 0)
+        Bti_val = all_values.get('Bti', 0)
+        Bg_val = all_values.get('Bg', 0)
+        Bgi_val = all_values.get('Bgi', 0)
+        Swi_val = all_values.get('Swi', 0)
+        cw_val = all_values.get('cw', 0)
+        cf_val = all_values.get('cf', 0)
+        deltaP_val = all_values.get('deltaP', 0)
+        We_val = all_values.get('We', 0)
+        Wp_val = all_values.get('Wp', 0)
+        Bw_val = all_values.get('Bw', 0)
 
-    # 3. Rock & connate-water expansion energy [bbl]
-    #    Guard against division by zero when Swi == 1.
-    if abs(1.0 - Swi_val) < 1e-12:
-        rock_water_term = 0.0
-    else:
-        rock_water_term = abs(
-            N_val * Bti_val * (1 + m_val)
-            * ((Swi_val * cw_val + cf_val) / (1 - Swi_val))
-            * deltaP_val
-        )
+        # --- Compute absolute magnitudes of each drive term ---
+        #
+        # The denominator terms (oil shrinkage, gas-cap expansion, rock/water
+        # expansion) are expressed in FVF units (bbl/STB).  To compare them
+        # with the water-influx term (which is in bbl), we multiply each
+        # denominator term by N [STB], yielding consistent bbl units.
+        #
+        # This gives the actual volume of fluid displaced by each mechanism.
 
-    # 4. Net water influx energy [bbl]
-    water_term = abs(We_val - Wp_val * Bw_val)
+        # 1. Oil shrinkage / solution-gas expansion energy [bbl]
+        oil_term = abs(N_val * (Bt_val - Bti_val))
 
-    # Collect labels and raw values for the caller
-    labels = [
-        "Oil Shrinkage / Solution Gas",
-        "Gas Cap Expansion",
-        "Rock & Water Expansion",
-        "Net Water Influx"
-    ]
-    raw_values = [oil_term, gas_cap_term, rock_water_term, water_term]
+        # 2. Gas-cap expansion energy [bbl]
+        if abs(Bgi_val) < 1e-12:
+            gas_cap_term = 0.0
+        else:
+            gas_cap_term = abs(N_val * m_val * Bti_val * (Bg_val / Bgi_val - 1))
+
+        # 3. Rock & connate-water expansion energy [bbl]
+        #    Guard against division by zero when Swi == 1.
+        if abs(1.0 - Swi_val) < 1e-12:
+            rock_water_term = 0.0
+        else:
+            rock_water_term = abs(
+                N_val * Bti_val * (1 + m_val)
+                * ((Swi_val * cw_val + cf_val) / (1 - Swi_val))
+                * deltaP_val
+            )
+
+        # 4. Net water influx energy [bbl]
+        water_term = abs(We_val - Wp_val * Bw_val)
+
+        # Collect labels and raw values for the caller
+        labels = [
+            "Oil Shrinkage / Solution Gas",
+            "Gas Cap Expansion",
+            "Rock & Water Expansion",
+            "Net Water Influx"
+        ]
+        raw_values = [oil_term, gas_cap_term, rock_water_term, water_term]
 
     # Normalise to percentages.  If the total is zero, return equal shares
     # so the chart still renders gracefully.

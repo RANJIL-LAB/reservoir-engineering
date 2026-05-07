@@ -1,14 +1,21 @@
 import streamlit as st
 import pandas as pd
 
+from config import OIL_VARS, GAS_VARS
 
-def render_manual_input(var_info: dict, target_var: str, forced_zeros: list, is_unsaturated: bool) -> dict:
+
+def _get_display_order(fluid_type):
+    if fluid_type == 'gas':
+        return GAS_VARS
+    return OIL_VARS
+
+
+def render_manual_input(var_info: dict, target_var: str, forced_zeros: list, is_unsaturated: bool, fluid_type: str = 'oil') -> dict:
     st.subheader("Enter Known Variables")
 
     col_left, col_right = st.columns(2)
 
-    display_order = ['N', 'Np', 'Bt', 'Bti', 'Rsi', 'Rp', 'Bg', 'Bgi',
-                     'We', 'Wp', 'Bw', 'm', 'Swi', 'cw', 'cf', 'deltaP']
+    display_order = _get_display_order(fluid_type)
 
     known_values = {}
     for idx, var in enumerate(display_order):
@@ -16,12 +23,12 @@ def render_manual_input(var_info: dict, target_var: str, forced_zeros: list, is_
             continue
         if var in forced_zeros:
             continue
-        if is_unsaturated and var == 'Rp':
+        if fluid_type != 'gas' and is_unsaturated and var == 'Rp':
             continue
 
         info = var_info[var]
         container = col_left if idx % 2 == 0 else col_right
-        min_val = 0.0 if var != 'deltaP' else None
+        min_val = 0.0 if var not in ('deltaP',) else None
 
         val = container.number_input(
             info['label'],
@@ -32,7 +39,7 @@ def render_manual_input(var_info: dict, target_var: str, forced_zeros: list, is_
         )
         known_values[var] = val
 
-    if is_unsaturated:
+    if fluid_type != 'gas' and is_unsaturated:
         if 'Rsi' in known_values:
             known_values['Rp'] = known_values['Rsi']
         else:
@@ -41,7 +48,7 @@ def render_manual_input(var_info: dict, target_var: str, forced_zeros: list, is_
     return {'known_values': known_values}
 
 
-def render_file_upload(var_info: dict, target_var: str, forced_zeros: list, is_unsaturated: bool) -> dict:
+def render_file_upload(var_info: dict, target_var: str, forced_zeros: list, is_unsaturated: bool, fluid_type: str = 'oil') -> dict:
     st.subheader("Upload Data File")
 
     uploaded_file = st.file_uploader(
@@ -83,19 +90,23 @@ def render_file_upload(var_info: dict, target_var: str, forced_zeros: list, is_u
     if len(df) > 1:
         st.info("Multi-row file detected – time-series charts will be generated below.")
 
+    display_order = _get_display_order(fluid_type)
+
     known_values = {}
-    for var, col in col_map.items():
+    for var in display_order:
         if var == target_var:
             continue
         if var in forced_zeros:
             continue
+        if var not in col_map:
+            continue
 
         try:
-            known_values[var] = float(df[col].iloc[0])
+            known_values[var] = float(df[col_map[var]].iloc[0])
         except Exception:
-            st.warning(f"Could not read value for '{var}' from column '{col}'.")
+            st.warning(f"Could not read value for '{var}' from column '{col_map[var]}'.")
 
-    if is_unsaturated:
+    if fluid_type != 'gas' and is_unsaturated:
         if 'Rsi' in known_values:
             known_values['Rp'] = known_values['Rsi']
         elif 'Rp' in known_values and 'Rsi' not in known_values:

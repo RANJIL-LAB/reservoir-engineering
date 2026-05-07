@@ -1,10 +1,28 @@
 import streamlit as st
+import urllib.parse
 
 st.set_page_config(
     page_title="Documentation — MBE Tool",
     page_icon="📖",
     layout="wide",
 )
+
+BASE_URL = "/"
+
+
+def _build_url(params: dict) -> str:
+    return BASE_URL + "?" + urllib.parse.urlencode(params)
+
+
+def _example_button(label: str, params: dict):
+    url = _build_url(params)
+    st.markdown(
+        f'<a href="{url}" target="_self" style="display:inline-block;'
+        f'padding:0.5em 1em;background:#1f77b4;color:white;'
+        f'text-decoration:none;border-radius:6px;font-weight:bold;">'
+        f'{label}</a>',
+        unsafe_allow_html=True,
+    )
 
 st.title("📖 How to Use This Tool")
 st.caption("A beginner-friendly guide. No math degree needed.")
@@ -187,3 +205,140 @@ with st.expander("What is the Havlena-Odeh method?"):
 
     The app plots this chart automatically when you upload a multi-row CSV file.
     """)
+
+st.markdown("---")
+st.header("📋 Interactive Examples")
+st.caption("Click any button to load the example directly into the calculator.")
+
+col_a, col_b = st.columns(2)
+
+with col_a:
+    st.subheader("Example 1: Finding Missing Water")
+    st.markdown("""
+    **Oil reservoir with all drives active.** We know everything except
+    how much water flowed in from the aquifer.
+
+    - Target: **We** (Water Influx)
+    - Fluid: Oil, Saturated
+    - Drives: Water, Gas Cap, Expansion — all ON
+    - N = 10,000,000 STB
+    - Np = 1,000,000 STB, Bt = 1.655, Bti = 1.58
+    - Rsi = 1040, Rp = 1100
+    - Bg = 0.00092, Bgi = 0.00080
+    - Wp = 50,000, Bw = 1.0, m = 0.25
+    - Swi = 0.20, cw = 1.5×10⁻⁶, cf = 1.0×10⁻⁶, deltaP = 200
+    """)
+    _example_button("▶️ Run Example 1 in App", {
+        'target_var': 'We',
+        'fluid_type': 'Oil',
+        'reservoir_state': 'Saturated',
+        'water_drive_active': 'true',
+        'gas_cap_active': 'true',
+        'expansion_active': 'true',
+        'N': '10000000',
+        'Np': '1000000',
+        'Bt': '1.655',
+        'Bti': '1.58',
+        'Rsi': '1040',
+        'Rp': '1100',
+        'Bg': '0.00092',
+        'Bgi': '0.00080',
+        'Wp': '50000',
+        'Bw': '1.0',
+        'm': '0.25',
+        'Swi': '0.20',
+        'cw': '0.0000015',
+        'cf': '0.000001',
+        'deltaP': '200',
+        'auto_calculate': 'true',
+    })
+
+    st.subheader("Example 3: The Big Butte Field")
+    st.markdown("""
+    **Oil reservoir with water and gas cap drives active.**
+    A typical saturated reservoir with moderate aquifer support.
+
+    - Target: **N** (Oil-In-Place)
+    - Fluid: Oil, Saturated
+    - Drives: Water ON, Gas Cap ON, Expansion OFF
+    - Np = 5,000,000 STB
+    - Bt = 1.48, Bti = 1.35
+    - Rsi = 600, Rp = 1100
+    - Bg = 0.0015, Bgi = 0.0011
+    - We = 3,000,000, Wp = 200,000, Bw = 1.0
+    - m = 0.2
+    """)
+    _example_button("▶️ Run Example 3 in App", {
+        'target_var': 'N',
+        'fluid_type': 'Oil',
+        'reservoir_state': 'Saturated',
+        'water_drive_active': 'true',
+        'gas_cap_active': 'true',
+        'expansion_active': 'false',
+        'Np': '5000000',
+        'Bt': '1.48',
+        'Bti': '1.35',
+        'Rsi': '600',
+        'Rp': '1100',
+        'Bg': '0.0015',
+        'Bgi': '0.0011',
+        'We': '3000000',
+        'Wp': '200000',
+        'Bw': '1.0',
+        'm': '0.2',
+        'auto_calculate': 'true',
+    })
+
+with col_b:
+    st.subheader("Example 2: Fractional Recovery Hack")
+    st.markdown("""
+    **Unsaturated oil reservoir — the simplest case.**
+    A tight reservoir where only rock and water expansion provide energy.
+    Great for understanding the expansion term.
+
+    - Target: **N** (Oil-In-Place)
+    - Fluid: Oil, Unsaturated
+    - Drives: Water OFF, Gas Cap OFF, Expansion ON
+    - Np = 1,000 STB
+    - Bt = 1.2511, Bti = 1.2417
+    - Swi = 0.20, cw = 3×10⁻⁶, cf = 8.6×10⁻⁶
+    - deltaP = 670 psi
+    """)
+    _example_button("▶️ Run Example 2 in App", {
+        'target_var': 'N',
+        'fluid_type': 'Oil',
+        'reservoir_state': 'Unsaturated',
+        'water_drive_active': 'false',
+        'gas_cap_active': 'false',
+        'expansion_active': 'true',
+        'Np': '1000',
+        'Bt': '1.2511',
+        'Bti': '1.2417',
+        'Swi': '0.20',
+        'cw': '0.000003',
+        'cf': '0.0000086',
+        'deltaP': '670',
+        'auto_calculate': 'true',
+    })
+
+    st.subheader("Example 4: Gas — Volumetric Depletion")
+    st.markdown("""
+    **Dry gas reservoir with no water drive.**
+    The simplest gas case: gas expansion is the only drive mechanism.
+
+    - Target: **G** (Gas-In-Place)
+    - Fluid: Gas
+    - Drives: Water OFF, Expansion OFF
+    - Gp = 5,000,000 Mscf
+    - Bg = 0.0015, Bgi = 0.0012
+    """)
+    _example_button("▶️ Run Example 4 in App", {
+        'target_var': 'G',
+        'fluid_type': 'Gas',
+        'water_drive_active': 'false',
+        'expansion_active': 'false',
+        'Gp': '5000000',
+        'Bg': '0.0015',
+        'Bgi': '0.0012',
+        'auto_calculate': 'true',
+    })
