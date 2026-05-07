@@ -2,7 +2,7 @@ import streamlit as st
 import urllib.parse
 
 st.set_page_config(
-    page_title="Documentation — MBE Tool",
+    page_title="User Manual — MBE Tool",
     page_icon="📖",
     layout="wide",
 )
@@ -24,321 +24,544 @@ def _example_button(label: str, params: dict):
         unsafe_allow_html=True,
     )
 
-st.title("📖 How to Use This Tool")
-st.caption("A beginner-friendly guide. No math degree needed.")
 
-with st.expander("What does this tool do?", expanded=True):
-    st.markdown("""
-    This tool solves the **Material Balance Equation (MBE)** — a formula that
-    tells you about an oil reservoir.
+st.title("📖 MBE Solver — User Manual")
+st.caption("Everything you need to use this tool, from first click to expert analysis.")
 
-    You give it some numbers (like how much oil you pumped out, what the 
-    pressure is, etc.), and it calculates the one number you don't know.
 
-    **It can tell you:**
-    - **N** — How much oil was originally underground
-    - **We** — How much water has flowed into the reservoir
-    - **m** — How big the gas cap is
-    - **deltaP** — How much the pressure dropped
-    """)
+# ── 1. Getting Started ──────────────────────────────────────────────────────
 
-with st.expander("What is the Material Balance Equation?"):
-    st.markdown("""
-    The MBE is a simple idea:
+st.header("1. Getting Started")
+st.markdown("""
+This tool solves the **Material Balance Equation (MBE)** — a formula petroleum
+engineers use to understand what's happening inside an oil or gas reservoir.
 
-    > *"What you started with = what you took out + what moved around to fill the empty space."*
+You give it numbers (production volumes, pressures, fluid properties), and it
+calculates the one number you don't know. It can tell you:
 
-    Imagine an underground cave filled with oil. When you pump oil out:
+- **N** — How much oil was originally underground
+- **We** — How much water has flowed in from the aquifer
+- **m** — How big the gas cap is, relative to the oil zone
+- **deltaP** — How much the pressure dropped
+- **G** — How much gas was originally underground
 
-    1. The pressure drops
-    2. The oil shrinks a little
-    3. Gas bubbles out of the oil (like soda fizzing)
-    4. Any gas cap above expands to fill the void
-    5. Water from surrounding rocks pushes in
-    6. The rocks themselves squeeze slightly
+To launch the app, open a terminal and run:
 
-    The MBE counts all these volume changes and makes sure they add up.
-    """)
+```bash
+streamlit run app.py
+```
 
-with st.expander("Step-by-step: How to use the app"):
-    st.markdown("""
-    ### Step 1 — Pick what you want to solve for
-    In the sidebar, choose one of: **N**, **We**, **m**, or **deltaP**.
+Your browser opens to `http://localhost:8501`. This page — the manual — lives at
+`http://localhost:8501/docs`. The calculator itself is at the home page.
+""")
 
-    ### Step 2 — Choose the reservoir state
-    - **Saturated** — Pressure is at or below bubble point. Gas is bubbling out of the oil.
-    - **Unsaturated** — Pressure is above bubble point. No free gas yet.
 
-    ### Step 3 — Turn drives on or off
-    Check the boxes for what's active in your reservoir:
-    - **Water Drive** — Is an aquifer pushing water in?
-    - **Gas Cap** — Is there a gas cap on top of the oil?
-    - **Rock & Water Expansion** — Are the rocks and water squeezing?
+# ── 2. The Interface ────────────────────────────────────────────────────────
 
-    When you turn a drive OFF, the app hides the variables that don't matter
-    anymore. This keeps the screen clean and prevents confusion.
+st.header("2. The Interface")
 
-    ### Step 4 — Enter your numbers
-    Type numbers into the boxes, or upload a CSV/Excel file.
+st.subheader("The Sidebar")
 
-    ### Step 5 — Click Calculate
-    The big blue button does the math.
-    """)
+st.markdown("""
+Open the app and look at the left sidebar. This is where you tell the tool
+*what kind of reservoir* you have and *what you want to solve for*.
 
-with st.expander("What does each variable mean?"):
-    col1, col2, col3 = st.columns(3)
+**Fluid Type**
+Choose between **Oil Reservoir** and **Gas Reservoir**. This changes
+everything — the equation, the variable list, and the drive options. Gas
+reservoirs are simpler (fewer variables, fewer drive mechanisms).
 
-    with col1:
-        st.markdown("""
-        ### Oil & Production
-        **N** — How much oil was originally in the ground (STB)
+**Target Variable**
+The dropdown labeled *"What do you want to solve for?"* is the single unknown
+the computer will calculate. For oil, you can pick **N**, **We**, **m**, or
+**deltaP**. For gas, you can pick **G** or **We**.
 
-        **Np** — How much oil you've pumped out so far (STB)
+**Reservoir State** (Oil only)
+- **Saturated** — Pressure is at or below the bubble point. Gas is bubbling
+  out of the oil. You'll need to enter gas-related variables like `Rp`, `Rsi`,
+  `Bg`, `Bgi`.
+- **Unsaturated** — Pressure is still above the bubble point. No free gas
+  exists. The app automatically hides gas variables and sets `Rp = Rsi`.
 
-        **Bt** — How much space 1 barrel of oil takes up now, at reservoir conditions (bbl/STB)
+**Drive Mechanisms**
+Three checkboxes control which physical forces are active in your reservoir:
 
-        **Bti** — How much space 1 barrel of oil took up originally (bbl/STB)
-        """)
+| Checkbox | When OFF |
+|---|---|
+| Water Drive Active? | Sets `We`, `Wp`, `Bw` to zero and hides them |
+| Gas Cap Active? | Sets `m`, `Bgi` to zero and hides them |
+| Rock & Water Expansion Active? | Sets `cw`, `cf`, `Swi`, `deltaP` to zero and hides them |
 
-    with col2:
-        st.markdown("""
-        ### Gas
-        **Rp** — How much gas came out with each barrel of oil (scf/STB)
+The smart-hiding behavior means you only see input boxes for variables that
+actually matter for your scenario. No clutter, no confusion.
 
-        **Rsi** — How much gas was dissolved in each barrel of oil originally (scf/STB)
+**The "Unsaturated" shortcut**
+When you select *Unsaturated*, the app automatically forces `m = 0`, `Bg = 0`,
+`Bgi = 0`, and `Rsi = 0` — then hides them all. This is the equivalent of
+turning off the Gas Cap drive, since there's no free gas above the bubble
+point.
+""")
 
-        **Bg** — How much space 1 cubic foot of gas takes up now (bbl/scf)
+st.subheader("Data Input Area")
 
-        **Bgi** — How much space 1 cubic foot of gas took up originally (bbl/scf)
+st.markdown("""
+Below the sidebar header, you choose how to provide your numbers:
 
-        **m** — How big the gas cap is compared to the oil zone (dimensionless)
-        """)
+**Manual Entry**
+Input boxes appear in two columns. Each box shows the variable name, its
+description, and a sensible default value. The app automatically hides:
 
-    with col3:
-        st.markdown("""
-        ### Water & Rock
-        **We** — How much water has flowed in from the aquifer (bbl)
+- The variable you're solving for (that's the unknown)
+- Variables forced to zero by your drive mechanism choices
 
-        **Wp** — How much water you've pumped out (bbl)
+Only fill in what you see. If a variable is missing from the screen, the app
+is handling it for you.
 
-        **Bw** — How much space 1 barrel of water takes up (bbl/STB)
+**File Upload (CSV/Excel)**
+Drop a spreadsheet file to load data from columns. The app matches column
+names to variables (case-insensitive — `np` and `Np` both work). Only the
+first row is used for calculation; if your file has multiple rows, the app
+also generates time-series charts (Pressure vs Np, Havlena-Odeh F vs Et).
 
-        **Swi** — What fraction of the rock pores were originally filled with water (decimal)
+Hit the big blue **Calculate** button when you're ready. If you arrived here
+from a tutorial link, the calculation runs automatically.
+""")
 
-        **cw** — How much water compresses when pressure drops (psi⁻¹)
 
-        **cf** — How much the rock compresses when pressure drops (psi⁻¹)
+# ── 3. Guided Tutorials ─────────────────────────────────────────────────────
 
-        **deltaP** — How much the pressure dropped (psi)
-        """)
-
-with st.expander("Understanding the units"):
-    st.markdown("""
-    | Unit | What it means |
-    |------|---------------|
-    | **STB** | Stock Tank Barrels — oil at surface conditions |
-    | **bbl** | Barrels — volume at reservoir conditions |
-    | **scf/STB** | Standard Cubic Feet per Stock Tank Barrel — gas per oil |
-    | **psi** | Pounds per Square Inch — pressure |
-    | **psi⁻¹** | Per psi — compressibility |
-    | **decimal** | Fraction (e.g. 0.25 means 25%) |
-    | **dimensionless** | No units — just a ratio |
-    """)
-
-with st.expander("What the results tell you"):
-    st.markdown("""
-    After you click Calculate, you'll see:
-
-    1. **The answer** — The variable you wanted to solve for, shown large and clear
-    2. **Recovery Factor** — What percentage of the oil you've produced so far
-    3. **Drive Mechanism Analysis** — Which force is doing most of the pushing (gas cap? water? solution gas?)
-    4. **Expert tips** — Warnings and advice based on your specific results
-    5. **Drive Indices pie chart** — A donut chart showing how much each mechanism contributes
-    6. **Summary table** — All your inputs and the answer in one table
-    7. **Download button** — Save everything as a CSV file
-    """)
-
-with st.expander("Tips for beginners"):
-    st.markdown("""
-    ### Tip 1: If you don't know a value, turn off its drive
-    Not sure about water influx? Uncheck "Water Drive Active?" and the app
-    sets it to zero for you. The input box disappears too, so you don't
-    get confused.
-
-    ### Tip 2: Start simple
-    Try Unsaturated reservoir with all drives OFF first. You only need
-    **Np**, **Bt**, and **Bti** — just three numbers. That's the simplest
-    possible calculation.
-
-    ### Tip 3: Check the drive chart
-    The pie chart tells you which mechanism is doing the most work.
-    If you expected "Water Drive" but see "Solution Gas Drive," double-check
-    your inputs.
-
-    ### Tip 4: Upload a CSV for multi-row data
-    If you have pressure and production data at multiple time points,
-    upload a CSV with one row per time point. The app shows time-series
-    charts (Pressure vs Np, Havlena-Odeh F vs Et).
-
-    ### Tip 5: Column names in your CSV must match
-    The app looks for columns like `N`, `Np`, `Bt`, `Bti`, etc.
-    Capitalization doesn't matter — `np` and `Np` both work.
-    """)
-
-with st.expander("What is the Havlena-Odeh method?"):
-    st.markdown("""
-    The Havlena-Odeh method rearranges the MBE into a straight-line form:
-
-    **F = N × Et**
-
-    Where:
-    - **F** = everything that came out of the reservoir (production + water)
-    - **Et** = everything that expanded underground (oil + gas + rock + water)
-
-    When you plot F vs Et with multi-row field data, you get a straight line
-    through the origin. The slope of that line is **N** (Initial Oil-In-Place).
-
-    This is a powerful way to verify your drive mechanism assumptions:
-    - If the line is straight, your assumptions about **m** and **We** are correct
-    - If the line curves up, you're missing an energy source (need larger **m** or **We**)
-    - If the line curves down, you're overestimating the energy
-
-    The app plots this chart automatically when you upload a multi-row CSV file.
-    """)
+st.header("3. Guided Tutorials")
+st.caption("Work through these in order. Each one teaches a different concept.")
 
 st.markdown("---")
-st.header("📋 Interactive Examples")
-st.caption("Click any button to load the example directly into the calculator.")
+
+st.subheader("Tutorial 1 — The Simplest Possible Case")
+st.markdown("""
+*Goal: See how few inputs you need for an unsaturated reservoir.*
+
+You have a tight oil reservoir above the bubble point. No gas cap, no water
+drive — only rock and water expansion are pushing oil out. You produced 1,000
+barrels and want to know how many were originally there.
+
+**Setup:**
+- Fluid: **Oil**
+- Target: **N**
+- Reservoir State: **Unsaturated**
+- Drives: turn **OFF** Water and Gas Cap, turn **ON** Expansion
+
+**What you'll type:**
+- Np = 1,000
+- Bt = 1.2511
+- Bti = 1.2417
+- Swi = 0.20
+- cw = 0.000003
+- cf = 0.0000086
+- deltaP = 670
+
+**What happens:**
+The app hides every variable related to gas and water. You see only seven
+input boxes — clean and simple. The answer is a modest oil-in-place number,
+driven entirely by rock and fluid compressibility.
+""")
+_example_button("▶️ Load Tutorial 1 in Calculator", {
+    'target_var': 'N',
+    'fluid_type': 'Oil',
+    'reservoir_state': 'Unsaturated',
+    'water_drive_active': 'false',
+    'gas_cap_active': 'false',
+    'expansion_active': 'true',
+    'Np': '1000',
+    'Bt': '1.2511',
+    'Bti': '1.2417',
+    'Swi': '0.20',
+    'cw': '0.000003',
+    'cf': '0.0000086',
+    'deltaP': '670',
+    'auto_calculate': 'true',
+})
+
+st.markdown("---")
+
+st.subheader("Tutorial 2 — Finding Missing Water Influx")
+st.markdown("""
+*Goal: Solve for We when you already know N.*
+
+You inherited a field report for a saturated oil reservoir. The previous
+engineer calculated N = 10 MMSTB but never estimated water influx. All
+three drive mechanisms are active.
+
+**Setup:**
+- Fluid: **Oil**
+- Target: **We**
+- Reservoir State: **Saturated**
+- Drives: all three **ON**
+
+**What you'll type:**
+- N = 10,000,000
+- Np = 1,000,000
+- Bt = 1.655, Bti = 1.58
+- Rsi = 1,040, Rp = 1,100
+- Bg = 0.00092, Bgi = 0.00080
+- Wp = 50,000, Bw = 1.0, m = 0.25
+- Swi = 0.20, cw = 1.5×10⁻⁶, cf = 1.0×10⁻⁶
+- deltaP = 200
+
+**What happens:**
+The solver rearranges the MBE to isolate We. The pie chart shows how much each
+mechanism contributes — with all three drives active, you'll see four slices.
+""")
+_example_button("▶️ Load Tutorial 2 in Calculator", {
+    'target_var': 'We',
+    'fluid_type': 'Oil',
+    'reservoir_state': 'Saturated',
+    'water_drive_active': 'true',
+    'gas_cap_active': 'true',
+    'expansion_active': 'true',
+    'N': '10000000',
+    'Np': '1000000',
+    'Bt': '1.655',
+    'Bti': '1.58',
+    'Rsi': '1040',
+    'Rp': '1100',
+    'Bg': '0.00092',
+    'Bgi': '0.00080',
+    'Wp': '50000',
+    'Bw': '1.0',
+    'm': '0.25',
+    'Swi': '0.20',
+    'cw': '0.0000015',
+    'cf': '0.000001',
+    'deltaP': '200',
+    'auto_calculate': 'true',
+})
+
+st.markdown("---")
+
+st.subheader("Tutorial 3 — The Classic Combination Drive")
+st.markdown("""
+*Goal: Solve for N with both water drive and gas cap active.*
+
+This is the textbook problem. A saturated reservoir with a known gas cap size
+and measured water influx. Expansion effects are negligible, so you turn them
+off to simplify.
+
+**Setup:**
+- Fluid: **Oil**
+- Target: **N**
+- Reservoir State: **Saturated**
+- Drives: Water **ON**, Gas Cap **ON**, Expansion **OFF**
+
+**What you'll type:**
+- Np = 5,000,000
+- Bt = 1.48, Bti = 1.35
+- Rsi = 600, Rp = 1,100
+- Bg = 0.0015, Bgi = 0.0011
+- We = 3,000,000, Wp = 200,000, Bw = 1.0
+- m = 0.2
+
+**What happens:**
+With expansion off, variables like Swi, cw, cf, and deltaP disappear. The
+result — about 36.6 MMSTB — matches the classic reservoir engineering
+reference problem.
+""")
+_example_button("▶️ Load Tutorial 3 in Calculator", {
+    'target_var': 'N',
+    'fluid_type': 'Oil',
+    'reservoir_state': 'Saturated',
+    'water_drive_active': 'true',
+    'gas_cap_active': 'true',
+    'expansion_active': 'false',
+    'Np': '5000000',
+    'Bt': '1.48',
+    'Bti': '1.35',
+    'Rsi': '600',
+    'Rp': '1100',
+    'Bg': '0.0015',
+    'Bgi': '0.0011',
+    'We': '3000000',
+    'Wp': '200000',
+    'Bw': '1.0',
+    'm': '0.2',
+    'auto_calculate': 'true',
+})
+
+st.markdown("---")
+
+st.subheader("Tutorial 4 — Gas Reservoir (Volumetric Depletion)")
+st.markdown("""
+*Goal: Use the gas MBE for a dry gas field.*
+
+Switch the fluid type to Gas and see a completely different interface. No oil
+variables, no gas cap ratio — just gas production and pressure data.
+
+**Setup:**
+- Fluid: **Gas**
+- Target: **G**
+- Drives: Water **OFF**
+
+**What you'll type:**
+- Gp = 5,000,000
+- Bg = 0.0015
+- Bgi = 0.0012
+
+**What happens:**
+With only three inputs, the solver calculates G = 25,000,000 Mscf (25 Bscf).
+The drive chart shows a single "Gas Expansion" slice. This is the simplest
+possible MBE calculation.
+""")
+_example_button("▶️ Load Tutorial 4 in Calculator", {
+    'target_var': 'G',
+    'fluid_type': 'Gas',
+    'water_drive_active': 'false',
+    'expansion_active': 'false',
+    'Gp': '5000000',
+    'Bg': '0.0015',
+    'Bgi': '0.0012',
+    'auto_calculate': 'true',
+})
+
+
+# ── 4. Understanding the Results ────────────────────────────────────────────
+
+st.header("4. Understanding the Results")
+
+st.markdown("""
+After clicking Calculate (or arriving from a tutorial link), the page scrolls
+down to the Results section. Here's what you see, in order:
+
+### The Big Answer
+The solved variable is displayed in large blue text, with units.
+For example: **N = 36,593,625.50 STB | 36.59 MMSTB**.
+
+### Recovery Factor (Oil only)
+If you solved for N (or provided it), the app shows what percentage of the
+original oil you've produced: **Rf = (Np / N) × 100%**.
+
+### Drive Mechanism Analysis
+A plain-language description of what's pushing the oil (or gas) out:
+
+| Mechanism | When it appears |
+|---|---|
+| Solution Gas Drive | m = 0 and We = 0 |
+| Gas Cap Drive | m > 0 |
+| Water Drive | Significant We |
+| Combination Drive | Both m > 0 and significant We |
+| Volumetric Depletion | Gas reservoir with We = 0 |
+
+### Expert Insights
+Context-sensitive warnings appear based on your numbers. For example:
+- If `Rp > Rsi`, you're losing pressure energy through the wellbore
+- If rock/fluid expansion is the only drive, expect very low recovery factor
+- Trend analysis tip: plot N over time to verify your drive mechanism assumptions
+
+### Drive Indices Pie Chart
+A donut chart showing each mechanism's percentage contribution.
+For oil, the four slices are:
+1. Oil Shrinkage / Solution Gas
+2. Gas Cap Expansion
+3. Rock & Water Expansion
+4. Net Water Influx
+
+For gas, the two slices are:
+1. Gas Expansion
+2. Net Water Influx
+
+### Summary Table
+Every variable, its final value, and its status (Target / Input / Forced Zero)
+in a scrollable table.
+
+### CSV Export
+Click **Download Summary as CSV** to save the results table as
+`mbe_results.csv`.
+""")
+
+
+# ── 5. Reference ────────────────────────────────────────────────────────────
+
+st.header("5. Reference")
+
+st.subheader("Variable Glossary")
 
 col_a, col_b = st.columns(2)
 
 with col_a:
-    st.subheader("Example 1: Finding Missing Water")
     st.markdown("""
-    **Oil reservoir with all drives active.** We know everything except
-    how much water flowed in from the aquifer.
+**N** — Initial Oil-In-Place (STB)
+: How much oil was originally in the ground.
 
-    - Target: **We** (Water Influx)
-    - Fluid: Oil, Saturated
-    - Drives: Water, Gas Cap, Expansion — all ON
-    - N = 10,000,000 STB
-    - Np = 1,000,000 STB, Bt = 1.655, Bti = 1.58
-    - Rsi = 1040, Rp = 1100
-    - Bg = 0.00092, Bgi = 0.00080
-    - Wp = 50,000, Bw = 1.0, m = 0.25
-    - Swi = 0.20, cw = 1.5×10⁻⁶, cf = 1.0×10⁻⁶, deltaP = 200
-    """)
-    _example_button("▶️ Run Example 1 in App", {
-        'target_var': 'We',
-        'fluid_type': 'Oil',
-        'reservoir_state': 'Saturated',
-        'water_drive_active': 'true',
-        'gas_cap_active': 'true',
-        'expansion_active': 'true',
-        'N': '10000000',
-        'Np': '1000000',
-        'Bt': '1.655',
-        'Bti': '1.58',
-        'Rsi': '1040',
-        'Rp': '1100',
-        'Bg': '0.00092',
-        'Bgi': '0.00080',
-        'Wp': '50000',
-        'Bw': '1.0',
-        'm': '0.25',
-        'Swi': '0.20',
-        'cw': '0.0000015',
-        'cf': '0.000001',
-        'deltaP': '200',
-        'auto_calculate': 'true',
-    })
+**Np** — Cumulative Oil Produced (STB)
+: How much oil you've pumped out so far.
 
-    st.subheader("Example 3: The Big Butte Field")
-    st.markdown("""
-    **Oil reservoir with water and gas cap drives active.**
-    A typical saturated reservoir with moderate aquifer support.
+**G** — Initial Gas-In-Place (Mscf)
+: How much gas was originally in the ground.
 
-    - Target: **N** (Oil-In-Place)
-    - Fluid: Oil, Saturated
-    - Drives: Water ON, Gas Cap ON, Expansion OFF
-    - Np = 5,000,000 STB
-    - Bt = 1.48, Bti = 1.35
-    - Rsi = 600, Rp = 1100
-    - Bg = 0.0015, Bgi = 0.0011
-    - We = 3,000,000, Wp = 200,000, Bw = 1.0
-    - m = 0.2
-    """)
-    _example_button("▶️ Run Example 3 in App", {
-        'target_var': 'N',
-        'fluid_type': 'Oil',
-        'reservoir_state': 'Saturated',
-        'water_drive_active': 'true',
-        'gas_cap_active': 'true',
-        'expansion_active': 'false',
-        'Np': '5000000',
-        'Bt': '1.48',
-        'Bti': '1.35',
-        'Rsi': '600',
-        'Rp': '1100',
-        'Bg': '0.0015',
-        'Bgi': '0.0011',
-        'We': '3000000',
-        'Wp': '200000',
-        'Bw': '1.0',
-        'm': '0.2',
-        'auto_calculate': 'true',
-    })
+**Gp** — Cumulative Gas Produced (Mscf)
+: How much gas you've produced so far.
+
+**Bt** — Current Two-Phase FVF (bbl/STB)
+: How much space 1 barrel of oil takes up now, at reservoir conditions.
+
+**Bti** — Initial Two-Phase FVF (bbl/STB)
+: How much space 1 barrel of oil took up originally.
+
+**Rp** — Cumulative Produced GOR (scf/STB)
+: How much gas came out with each barrel of oil, on average.
+
+**Rsi** — Initial Solution GOR (scf/STB)
+: How much gas was dissolved in each barrel of oil originally.
+
+**Bg** — Current Gas FVF (bbl/scf)
+: How much space 1 cubic foot of gas takes up now.
+""")
 
 with col_b:
-    st.subheader("Example 2: Fractional Recovery Hack")
     st.markdown("""
-    **Unsaturated oil reservoir — the simplest case.**
-    A tight reservoir where only rock and water expansion provide energy.
-    Great for understanding the expansion term.
+**Bgi** — Initial Gas FVF (bbl/scf)
+: How much space 1 cubic foot of gas took up originally.
 
-    - Target: **N** (Oil-In-Place)
-    - Fluid: Oil, Unsaturated
-    - Drives: Water OFF, Gas Cap OFF, Expansion ON
-    - Np = 1,000 STB
-    - Bt = 1.2511, Bti = 1.2417
-    - Swi = 0.20, cw = 3×10⁻⁶, cf = 8.6×10⁻⁶
-    - deltaP = 670 psi
-    """)
-    _example_button("▶️ Run Example 2 in App", {
-        'target_var': 'N',
-        'fluid_type': 'Oil',
-        'reservoir_state': 'Unsaturated',
-        'water_drive_active': 'false',
-        'gas_cap_active': 'false',
-        'expansion_active': 'true',
-        'Np': '1000',
-        'Bt': '1.2511',
-        'Bti': '1.2417',
-        'Swi': '0.20',
-        'cw': '0.000003',
-        'cf': '0.0000086',
-        'deltaP': '670',
-        'auto_calculate': 'true',
-    })
+**We** — Cumulative Water Influx (bbl)
+: How much water has flowed into the reservoir from the aquifer.
 
-    st.subheader("Example 4: Gas — Volumetric Depletion")
-    st.markdown("""
-    **Dry gas reservoir with no water drive.**
-    The simplest gas case: gas expansion is the only drive mechanism.
+**Wp** — Cumulative Water Produced (bbl)
+: How much water you've pumped out.
 
-    - Target: **G** (Gas-In-Place)
-    - Fluid: Gas
-    - Drives: Water OFF, Expansion OFF
-    - Gp = 5,000,000 Mscf
-    - Bg = 0.0015, Bgi = 0.0012
-    """)
-    _example_button("▶️ Run Example 4 in App", {
-        'target_var': 'G',
-        'fluid_type': 'Gas',
-        'water_drive_active': 'false',
-        'expansion_active': 'false',
-        'Gp': '5000000',
-        'Bg': '0.0015',
-        'Bgi': '0.0012',
-        'auto_calculate': 'true',
-    })
+**Bw** — Water FVF (bbl/STB)
+: How much space 1 barrel of water takes up.
+
+**m** — Gas Cap Ratio (dimensionless)
+: How big the gas cap is, compared to the oil zone. m = 0.2 means the gas
+cap is 20% as large as the oil zone.
+
+**Swi** — Initial Water Saturation (decimal)
+: What fraction of the rock pores were originally filled with water.
+0.25 means 25%.
+
+**cw** — Water Compressibility (psi⁻¹)
+: How much water compresses when pressure drops. Tiny number.
+
+**cf** — Formation Compressibility (psi⁻¹)
+: How much the rock itself compresses when pressure drops. Also tiny.
+
+**deltaP** — Change in Pressure (psi)
+: How much the pressure dropped from initial to current.
+""")
+
+st.subheader("Units Reference")
+
+st.markdown("""
+| Unit | Meaning |
+|---|---|
+| STB | Stock Tank Barrel — oil volume at surface conditions |
+| Mscf | Thousand Standard Cubic Feet — gas volume at surface |
+| bbl | Barrel — volume at reservoir conditions |
+| bbl/STB | Barrels per Stock Tank Barrel — formation volume factor |
+| bbl/scf | Barrels per Standard Cubic Foot — gas formation volume factor |
+| scf/STB | Standard Cubic Feet per Stock Tank Barrel — gas-oil ratio |
+| psi | Pounds per Square Inch — pressure |
+| psi⁻¹ | Per psi — compressibility |
+| decimal | Fraction (0.25 = 25%) |
+| dimensionless | No units — a pure ratio |
+""")
+
+st.subheader("The Material Balance Equation (Simplified)")
+
+st.markdown("""
+The MBE is a conservation law — what leaves the reservoir must be balanced by
+what expands or flows in to fill the empty space.
+
+For oil reservoirs, the full equation is:
+
+```
+N = (Np × [Bt + (Rp − Rsi) × Bg] − (We − Wp × Bw))
+    ─────────────────────────────────────────────────
+    (Bt − Bti) + m × Bti × [Bg/Bgi − 1] + Bti × (1+m) × [(Swi×cw+cf)/(1−Swi)] × deltaP
+```
+
+**Top (numerator):** Everything that came out of the reservoir minus what came in.
+- `Np × Bt` — produced oil, converted to reservoir volume
+- `Np × (Rp − Rsi) × Bg` — extra gas that bubbled out as pressure dropped
+- `We − Wp × Bw` — net water (aquifer inflow minus produced water)
+
+**Bottom (denominator):** How much space was created underground by expansion.
+- `(Bt − Bti)` — oil itself expanded
+- `m × Bti × (Bg/Bgi − 1)` — gas cap expanded
+- `Bti × (1+m) × [...] × deltaP` — rock and water squeezed
+
+For gas reservoirs, the equation is simpler:
+
+```
+G × (Bg − Bgi) = Gp × Bg − (We − Wp × Bw)
+```
+
+You don't need to memorize these. The app handles the math. The important
+thing is understanding which terms correspond to which drive mechanisms,
+so you know which checkboxes to turn on or off.
+""")
+
+st.subheader("The Havlena-Odeh Method")
+
+st.markdown("""
+The Havlena-Odeh method rearranges the MBE into a straight-line form:
+
+**F = N × Et**
+
+Where:
+- **F** = everything produced (oil, gas, water)
+- **Et** = everything that expanded (oil, gas cap, rock, water)
+
+When you upload a CSV with multiple rows (one per time step), the app plots
+F vs Et. A straight line through the origin confirms your drive mechanism
+assumptions are correct. The slope of the line is **N**.
+
+- **Straight line** — your m and We assumptions are correct
+- **Curves upward** — you're missing an energy source (try a larger m or We)
+- **Curves downward** — you're overestimating the energy
+""")
+
+
+# ── 6. Troubleshooting ──────────────────────────────────────────────────────
+
+st.header("6. Troubleshooting")
+
+st.subheader("Common Errors")
+
+st.markdown("""
+**"Missing known values for variables: ..."**
+: You left one or more input boxes empty. The app tells you exactly which
+variables are missing. Fill them in and try again.
+
+**"Division by zero or undefined expression after substitution"**
+: Your inputs created a mathematical impossibility — usually a zero in a
+denominator like `Bg/Bgi` when both are forced to zero. Turn on the
+relevant drive mechanism or provide a non-zero value.
+
+**"Target variable cancels out"**
+: The variable you're solving for doesn't appear in the equation after all
+other values are substituted. For example, solving for deltaP when expansion
+is turned off has no effect — turn on Rock & Water Expansion first.
+
+**"No valid solution found"**
+: SymPy couldn't find a numeric answer. Try different initial guesses, or
+check that your inputs are physically reasonable.
+""")
+
+st.subheader("Quick Tips")
+
+st.markdown("""
+1. **Start with the tutorials above.** Each one loads a working example with
+   one click. Study the setup, then tweak one number at a time to see how the
+   answer changes.
+
+2. **Turn off drives you don't need.** Unsure about water influx? Uncheck
+   Water Drive. The app zeros it out and hides the relevant input boxes.
+
+3. **The pie chart is your diagnostic tool.** If you expected "Water Drive"
+   but the chart shows 100% "Solution Gas Drive," your We value is probably
+   wrong or missing.
+
+4. **CSV column names are case-insensitive.** Upload a file with columns
+   named `np`, `bt`, `WE` — they'll all map correctly.
+
+5. **For gas reservoirs, switch the fluid type first.** The interface
+   completely changes — fewer variables, different target options.
+""")
