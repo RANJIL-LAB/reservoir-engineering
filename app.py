@@ -27,6 +27,7 @@ from mbe_solver import solve_mbe
 from ui.sidebar import render_sidebar
 from ui.data_input import render_manual_input, render_file_upload
 from ui.results import render_results
+from ui.rp_sensitivity import render_rp_sensitivity
 from ui.time_series import render_time_series
 
 st.set_page_config(
@@ -143,6 +144,22 @@ st.header("Results")
 
 trigger_calc = st.button("Calculate", type="primary") or auto_calculate
 
+cfg_fingerprint = (
+    config['target_var'],
+    config['fluid_type'],
+    config['is_unsaturated'],
+    tuple(sorted(config['forced_zeros'])),
+)
+if cfg_fingerprint != st.session_state.get('_prev_cfg_fp'):
+    st.session_state['calculated'] = False
+
+input_fingerprint = (
+    input_method,
+    tuple(sorted((k, v) for k, v in known_values.items())),
+)
+if input_fingerprint != st.session_state.get('_prev_inp_fp'):
+    st.session_state['calculated'] = False
+
 if trigger_calc:
     if not known_values and not auto_calculate:
         st.error("Please provide input values before calculating.")
@@ -174,10 +191,48 @@ if trigger_calc:
         t_elapsed = time.perf_counter() - t_start
 
     all_vals = result.get('all_values', {})
-    render_results(result, target_var, forced_zeros, all_vals, t_elapsed, var_info, all_vars, fluid_type)
+
+    st.session_state['calculated'] = True
+    st.session_state['_result'] = result
+    st.session_state['_target_var'] = target_var
+    st.session_state['_forced_zeros'] = forced_zeros
+    st.session_state['_all_vals'] = all_vals
+    st.session_state['_t_elapsed'] = t_elapsed
+    st.session_state['_fluid_type'] = fluid_type
+    st.session_state['_is_unsaturated'] = is_unsaturated
+    st.session_state['_df'] = df
+    st.session_state['_col_map'] = col_map
+    st.session_state['_prev_cfg_fp'] = cfg_fingerprint
+    st.session_state['_prev_inp_fp'] = input_fingerprint
 
     if auto_calculate:
         auto_calculate = False
 
-if df is not None and len(df) > 1:
-    render_time_series(df, col_map)
+if st.session_state.get('calculated', False):
+    render_results(
+        st.session_state['_result'],
+        st.session_state['_target_var'],
+        st.session_state['_forced_zeros'],
+        st.session_state['_all_vals'],
+        st.session_state['_t_elapsed'],
+        var_info,
+        all_vars,
+        st.session_state['_fluid_type'],
+    )
+
+    _df = st.session_state.get('_df')
+    _col_map = st.session_state.get('_col_map', {})
+    if _df is not None and len(_df) > 1:
+        render_time_series(_df, _col_map)
+
+    if (
+        st.session_state['_fluid_type'] == 'oil'
+        and not st.session_state['_is_unsaturated']
+    ):
+        st.markdown("---")
+        st.subheader("Rp Sensitivity Analysis")
+        st.caption(
+            "Explore how the Cumulative Produced GOR (Rp) affects the "
+            "predicted Recovery Factor (RF) based on current reservoir conditions."
+        )
+        render_rp_sensitivity(st.session_state['_all_vals'])
