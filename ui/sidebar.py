@@ -1,7 +1,7 @@
 import streamlit as st
 
 
-def render_sidebar() -> dict:
+def render_sidebar():
     st.sidebar.header("Configuration")
 
     fluid_type = st.sidebar.radio(
@@ -23,7 +23,6 @@ def render_sidebar() -> dict:
             key="sidebar_target_var",
         )
         is_unsaturated = False
-        reservoir_state = None
     else:
         target_var = st.sidebar.selectbox(
             "What do you want to solve for?",
@@ -56,24 +55,24 @@ def render_sidebar() -> dict:
         gas_cap_active = st.sidebar.checkbox("Gas Cap Active?", value=False, key="sidebar_gas_cap")
         expansion_active = st.sidebar.checkbox("Rock & Water Expansion Active?", value=False, key="sidebar_expansion")
 
-    forced_zeros = []
+    forced_zeros = set()
+
     if not is_gas and is_unsaturated:
-        forced_zeros.extend(['m', 'Bg', 'Bgi', 'Rsi', 'Rs'])
+        forced_zeros.update(['m', 'Bg', 'Bgi', 'Rsi', 'Rs'])
     if not water_drive_active:
-        forced_zeros.extend(['We', 'Wp', 'Bw'])
+        forced_zeros.update(['We', 'Wp', 'Bw'])
     if not is_gas and not gas_cap_active:
-        forced_zeros.extend(['m', 'Bgi'])
+        forced_zeros.update(['m', 'Bgi'])
     if not is_gas and not expansion_active:
-        forced_zeros.extend(['cw', 'cf', 'Swi'])
+        forced_zeros.update(['cw', 'cf', 'Swi'])
         if target_var != 'deltaP':
-            forced_zeros.append('deltaP')
-    forced_zeros = list(dict.fromkeys(forced_zeros))
+            forced_zeros.add('deltaP')
 
     return {
         'target_var': target_var,
         'fluid_type': 'gas' if is_gas else 'oil',
         'is_unsaturated': is_unsaturated,
-        'forced_zeros': forced_zeros,
+        'forced_zeros': list(forced_zeros),
         'water_drive_active': water_drive_active,
         'gas_cap_active': gas_cap_active,
         'expansion_active': expansion_active,

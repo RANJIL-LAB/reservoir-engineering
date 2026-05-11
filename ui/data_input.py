@@ -4,18 +4,22 @@ import pandas as pd
 from config import OIL_VARS, GAS_VARS
 
 
-def _get_display_order(fluid_type):
-    if fluid_type == 'gas':
-        return GAS_VARS
-    return OIL_VARS
+def _apply_unsaturated_overrides(known_values, is_unsaturated):
+    if not is_unsaturated:
+        return
+    if 'Rsi' in known_values:
+        known_values['Rp'] = known_values['Rsi']
+        known_values['Rs'] = known_values['Rsi']
+    elif 'Rp' in known_values:
+        known_values['Rsi'] = known_values['Rp']
+        known_values['Rs'] = known_values['Rp']
 
 
-def render_manual_input(var_info: dict, target_var: str, forced_zeros: list, is_unsaturated: bool, fluid_type: str = 'oil') -> dict:
+def render_manual_input(var_info, target_var, forced_zeros, is_unsaturated, fluid_type='oil'):
     st.subheader("Enter Known Variables")
 
     col_left, col_right = st.columns(2)
-
-    display_order = _get_display_order(fluid_type)
+    display_order = GAS_VARS if fluid_type == 'gas' else OIL_VARS
 
     known_values = {}
     for idx, var in enumerate(display_order):
@@ -30,27 +34,22 @@ def render_manual_input(var_info: dict, target_var: str, forced_zeros: list, is_
         container = col_left if idx % 2 == 0 else col_right
         min_val = 0.0 if var not in ('deltaP',) else None
 
+        default_for_widget = st.session_state.get(f"manual_{var}", info['default'])
         val = container.number_input(
             info['label'],
-            value=info['default'],
+            value=default_for_widget,
             format=info['format'],
             min_value=min_val,
             key=f"manual_{var}"
         )
         known_values[var] = val
 
-    if fluid_type != 'gas' and is_unsaturated:
-        if 'Rsi' in known_values:
-            known_values['Rp'] = known_values['Rsi']
-            known_values['Rs'] = known_values['Rsi']
-        else:
-            known_values['Rp'] = 0.0
-            known_values['Rs'] = 0.0
+    _apply_unsaturated_overrides(known_values, is_unsaturated)
 
     return {'known_values': known_values}
 
 
-def render_file_upload(var_info: dict, target_var: str, forced_zeros: list, is_unsaturated: bool, fluid_type: str = 'oil') -> dict:
+def render_file_upload(var_info, target_var, forced_zeros, is_unsaturated, fluid_type='oil'):
     st.subheader("Upload Data File")
 
     uploaded_file = st.file_uploader(
@@ -92,7 +91,7 @@ def render_file_upload(var_info: dict, target_var: str, forced_zeros: list, is_u
     if len(df) > 1:
         st.info("Multi-row file detected – time-series charts will be generated below.")
 
-    display_order = _get_display_order(fluid_type)
+    display_order = GAS_VARS if fluid_type == 'gas' else OIL_VARS
 
     known_values = {}
     for var in display_order:
@@ -103,17 +102,12 @@ def render_file_upload(var_info: dict, target_var: str, forced_zeros: list, is_u
         if var not in col_map:
             continue
 
-        try:
-            known_values[var] = float(df[col_map[var]].iloc[0])
-        except Exception:
+        raw_val = pd.to_numeric(df[col_map[var]].iloc[0], errors='coerce')
+        if pd.isna(raw_val):
             st.warning(f"Could not read value for '{var}' from column '{col_map[var]}'.")
+        else:
+            known_values[var] = float(raw_val)
 
-    if fluid_type != 'gas' and is_unsaturated:
-        if 'Rsi' in known_values:
-            known_values['Rp'] = known_values['Rsi']
-            known_values['Rs'] = known_values['Rsi']
-        elif 'Rp' in known_values and 'Rsi' not in known_values:
-            known_values['Rsi'] = known_values['Rp']
-            known_values['Rs'] = known_values['Rp']
+    _apply_unsaturated_overrides(known_values, is_unsaturated)
 
     return {'known_values': known_values, 'df': df, 'col_map': col_map}

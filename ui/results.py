@@ -38,24 +38,24 @@ def render_results(
     st.success("Calculation successful!")
     st.caption(f"\u23f1\ufe0f Calculation completed in {t_elapsed:.4f} seconds")
 
-    res = result['result']
+    solved_value = result['result']
 
     if target_var == 'N':
-        display_str = f"{res:,.2f} STB"
-        if abs(res) >= 1e6:
-            display_str += f" &nbsp;|&nbsp; **{res/1e6:.2f} MMSTB**"
+        display_str = f"{solved_value:,.2f} STB"
+        if abs(solved_value) >= 1e6:
+            display_str += f" &nbsp;|&nbsp; **{solved_value/1e6:.2f} MMSTB**"
     elif target_var == 'We':
-        display_str = f"{res:,.2f} bbl"
+        display_str = f"{solved_value:,.2f} bbl"
     elif target_var == 'm':
-        display_str = f"{res:.4f} (dimensionless)"
+        display_str = f"{solved_value:.4f} (dimensionless)"
     elif target_var == 'deltaP':
-        display_str = f"{res:,.2f} psi"
+        display_str = f"{solved_value:,.2f} psi"
     elif target_var == 'G':
-        display_str = f"{res:,.2f} Mscf"
-        if abs(res) >= 1e6:
-            display_str += f" &nbsp;|&nbsp; **{res/1e6:.2f} MMscf**"
+        display_str = f"{solved_value:,.2f} Mscf"
+        if abs(solved_value) >= 1e6:
+            display_str += f" &nbsp;|&nbsp; **{solved_value/1e6:.2f} MMscf**"
     else:
-        display_str = f"{res}"
+        display_str = f"{solved_value}"
 
     st.markdown(
         f"<h2 style='color:#1f77b4;'>{target_var} = {display_str}</h2>",
@@ -66,9 +66,9 @@ def render_results(
         N_val = all_vals.get('N')
         Np_val = all_vals.get('Np')
         if N_val is not None and N_val != 0:
-            rf = (Np_val / N_val) * 100
+            recovery_factor_percent = (Np_val / N_val) * 100
             st.markdown(
-                f"<h3 style='color:#2ca02c;'>Recovery Factor (Rf) = {rf:.2f}%</h3>",
+                f"<h3 style='color:#2ca02c;'>Recovery Factor (Rf) = {recovery_factor_percent:.2f}%</h3>",
                 unsafe_allow_html=True,
             )
 
@@ -184,7 +184,7 @@ def render_results(
     drive_data = compute_drive_indices(all_vals, fluid_type)
 
     if sum(drive_data['raw']) > 0:
-        fig = go.Figure(
+        drive_index_chart = go.Figure(
             data=[
                 go.Pie(
                     labels=drive_data['labels'],
@@ -200,12 +200,12 @@ def render_results(
                 )
             ]
         )
-        fig.update_layout(
+        drive_index_chart.update_layout(
             title_text="Relative Energy Contributions",
             showlegend=True,
             height=500,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(drive_index_chart, use_container_width=True)
     else:
         st.info(
             "No drive terms are active (all forced to zero). "

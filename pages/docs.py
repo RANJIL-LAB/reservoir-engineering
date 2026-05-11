@@ -45,10 +45,22 @@ calculates the one number you don't know. It can tell you:
 - **deltaP** — How much the pressure dropped
 - **G** — How much gas was originally underground
 
-To launch the app, open a terminal and run:
+To launch the app, open a terminal in the project folder and run:
 
 ```bash
-streamlit run app.py
+make run
+```
+
+To run the tests:
+
+```bash
+make test
+```
+
+To clean up cache files:
+
+```bash
+make clean
 ```
 
 Your browser opens to `http://localhost:8501`. This page — the manual — lives at

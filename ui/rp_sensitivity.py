@@ -1,24 +1,9 @@
-"""
-rp_sensitivity.py — Interactive Rp vs. RF sensitivity chart.
-
-Displays a Plotly line graph showing how the Recovery Factor (RF)
-varies with the Cumulative Produced GOR (Rp), using reservoir
-parameters from the MBE solution.
-
-The fractional recovery formula derives from the MBE (ignoring
-rock/water expansion and assuming no net water influx):
-
-    RF = numerator / (Bo + (Rp - Rs) * Bg) * 100
-
-where numerator = (Bo - Boi) + (Rsi - Rs)*Bg + m*Boi*(Bg/Bgi - 1)
-"""
-
 import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
 
 
-def render_rp_sensitivity(all_vals: dict) -> None:
+def render_rp_sensitivity(all_vals):
     Bo = all_vals.get('Bo') or 1.0
     Boi = all_vals.get('Boi') or 1.0
     Rsi = all_vals.get('Rsi') or 0.0
@@ -27,7 +12,7 @@ def render_rp_sensitivity(all_vals: dict) -> None:
     Bgi = all_vals.get('Bgi') or 0.001
     m = all_vals.get('m') or 0.0
 
-    actual_Rp = all_vals.get('Rp') if all_vals.get('Rp') is not None else 800.0
+    actual_produced_gor = all_vals.get('Rp') if all_vals.get('Rp') is not None else 800.0
 
     gas_cap_term = 0.0
     if Bgi != 0:
@@ -35,46 +20,46 @@ def render_rp_sensitivity(all_vals: dict) -> None:
 
     numerator = (Bo - Boi) + (Rsi - Rs) * Bg + gas_cap_term
 
-    rp_val = st.slider(
+    selected_produced_gor = st.slider(
         "Cumulative Produced GOR (Rp)",
         min_value=0,
         max_value=3000,
-        value=int(round(actual_Rp)),
+        value=int(round(actual_produced_gor)),
         step=50,
         key="rp_sensitivity_slider",
     )
 
-    denom_single = Bo + (rp_val - Rs) * Bg
+    denominator_at_selected_rp = Bo + (selected_produced_gor - Rs) * Bg
 
-    if numerator == 0 and denom_single == 0:
-        rf_single = 0.0
-    elif denom_single == 0:
-        rf_single = float('nan')
+    if numerator == 0 and denominator_at_selected_rp == 0:
+        recovery_factor_at_selected_rp = 0.0
+    elif denominator_at_selected_rp == 0:
+        recovery_factor_at_selected_rp = float('nan')
     else:
-        rf_single = (numerator / denom_single) * 100
+        recovery_factor_at_selected_rp = (numerator / denominator_at_selected_rp) * 100
 
     col1, col2 = st.columns(2)
     with col1:
-        st.metric("Selected Rp", f"{rp_val:,.2f} scf/STB")
+        st.metric("Selected Rp", f"{selected_produced_gor:,.2f} scf/STB")
     with col2:
-        st.metric("Recovery Factor (RF)", f"{rf_single:.2f}%")
+        st.metric("Recovery Factor (RF)", f"{recovery_factor_at_selected_rp:.2f}%")
 
-    rp_array = np.linspace(0, 3000, 301)
-    denom_array = Bo + (rp_array - Rs) * Bg
+    produced_gor_range = np.linspace(0, 3000, 301)
+    denominator_curve = Bo + (produced_gor_range - Rs) * Bg
 
     with np.errstate(divide='ignore', invalid='ignore'):
-        rf_array = np.where(
-            denom_array != 0,
-            (numerator / denom_array) * 100,
+        recovery_factor_curve = np.where(
+            denominator_curve != 0,
+            (numerator / denominator_curve) * 100,
             np.nan,
         )
 
-    fig = go.Figure()
+    sensitivity_chart = go.Figure()
 
-    fig.add_trace(
+    sensitivity_chart.add_trace(
         go.Scatter(
-            x=rp_array,
-            y=rf_array,
+            x=produced_gor_range,
+            y=recovery_factor_curve,
             mode='lines',
             name='RF Curve',
             line=dict(color='#1f77b4', width=2),
@@ -85,11 +70,11 @@ def render_rp_sensitivity(all_vals: dict) -> None:
         )
     )
 
-    if not np.isnan(rf_single) and 0 <= rp_val <= 3000:
-        fig.add_trace(
+    if not np.isnan(recovery_factor_at_selected_rp) and 0 <= selected_produced_gor <= 3000:
+        sensitivity_chart.add_trace(
             go.Scatter(
-                x=[rp_val],
-                y=[rf_single],
+                x=[selected_produced_gor],
+                y=[recovery_factor_at_selected_rp],
                 mode='markers',
                 name='Current Rp',
                 marker=dict(color='#d62728', size=12, symbol='circle'),
@@ -100,14 +85,14 @@ def render_rp_sensitivity(all_vals: dict) -> None:
             )
         )
 
-        fig.add_vline(
-            x=rp_val,
+        sensitivity_chart.add_vline(
+            x=selected_produced_gor,
             line=dict(color='#d62728', width=1, dash='dash'),
-            annotation_text=f"Rp = {rp_val:,.0f}",
+            annotation_text=f"Rp = {selected_produced_gor:,.0f}",
             annotation_position="top",
         )
 
-    fig.update_layout(
+    sensitivity_chart.update_layout(
         xaxis_title="Cumulative Produced GOR (Rp) [scf/STB]",
         yaxis_title="Recovery Factor (RF) [%]",
         showlegend=False,
@@ -115,4 +100,4 @@ def render_rp_sensitivity(all_vals: dict) -> None:
         margin=dict(l=60, r=20, t=20, b=60),
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(sensitivity_chart, use_container_width=True)

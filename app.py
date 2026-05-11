@@ -1,25 +1,6 @@
-"""
-Reservoir Engineering MBE Tool — Streamlit Application
-
-This application provides an interactive web interface for solving the
-General Material Balance Equation (MBE).  Users can:
-
-  1. Select a target variable to solve for (N, We, m, deltaP, or G).
-  2. Choose fluid type (Oil or Gas Reservoir).
-  3. Configure reservoir state and active drive mechanisms.
-  4. Enter data manually or upload a CSV/Excel file.
-  5. View the calculated result, drive-mechanism analysis,
-     execution timer, interactive drive-index chart, and a
-     downloadable summary table.
-  6. View time-series charts (Pressure vs Np, Havlena-Odeh F vs Et)
-     when multi-row CSV data is uploaded.
-
-The heavy lifting is delegated to `mbe_solver.py`, which uses SymPy to
-symbolically solve the MBE for any missing variable.
-"""
-
 import time
 
+import pandas as pd
 import streamlit as st
 
 from config import var_info, all_vars
@@ -36,9 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-FLOAT_VARS = {'N', 'Np', 'Bo', 'Boi', 'Rp', 'Rsi', 'Rs', 'Bg', 'Bgi',
-              'We', 'Wp', 'Bw', 'm', 'Swi', 'cw', 'cf', 'deltaP',
-              'G', 'Gp'}
+FLOAT_VARS = set(var_info.keys())
 
 
 def _hydrate_from_query_params():
@@ -90,10 +69,9 @@ def _hydrate_from_query_params():
             continue
 
         if param_key in FLOAT_VARS:
-            try:
-                st.session_state[f"manual_{param_key}"] = float(val)
-            except ValueError:
-                pass
+            parsed_val = pd.to_numeric(val, errors='coerce')
+            if pd.notna(parsed_val):
+                st.session_state[f"manual_{param_key}"] = float(parsed_val)
             continue
 
     st.session_state['_url_hydrated'] = True
