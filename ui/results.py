@@ -148,7 +148,6 @@ def render_results(
 
         Rp_val = all_vals.get('Rp')
         Rsi_val = all_vals.get('Rsi')
-        deltaP_val = all_vals.get('deltaP')
         Np_val_expert = all_vals.get('Np')
         m_val = all_vals.get('m', 0)
         we_val = all_vals.get('We', 0)

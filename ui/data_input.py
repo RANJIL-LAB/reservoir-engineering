@@ -103,10 +103,13 @@ def render_file_upload(var_info, target_var, forced_zeros, is_unsaturated, fluid
             continue
 
         raw_val = pd.to_numeric(df[col_map[var]].iloc[0], errors='coerce')
-        if pd.isna(raw_val):
-            st.warning(f"Could not read value for '{var}' from column '{col_map[var]}'.")
+        if isinstance(raw_val, (int, float)):
+            if pd.isna(raw_val):
+                st.warning(f"Could not read value for '{var}' from column '{col_map[var]}'.")
+            else:
+                known_values[var] = float(raw_val)
         else:
-            known_values[var] = float(raw_val)
+            st.warning(f"Could not read value for '{var}' from column '{col_map[var]}'.")
 
     _apply_unsaturated_overrides(known_values, is_unsaturated)
 

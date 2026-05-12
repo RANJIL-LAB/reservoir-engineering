@@ -112,7 +112,10 @@ def _solve_numerically(expr, target_symbol):
     guesses = [1e-6, 1e-3, 0.1, 1.0, 10.0, 100.0, 1e3, 1e4, 1e5, 1e6, 1e9]
     for guess in guesses:
         try:
-            candidate = float(sp.nsolve(expr, target_symbol, guess, tol=1e-10, maxsteps=100))
+            sol = sp.nsolve(expr, target_symbol, guess, tol=1e-10, maxsteps=100)
+            if isinstance(sol, (list, dict, sp.MatrixBase)):
+                continue
+            candidate = float(sol)
             residual = float(expr.subs({target_symbol: candidate}))
             if abs(residual) < 1e-6:
                 return candidate
@@ -181,7 +184,6 @@ def compute_mbe_derived_terms(values, fluid_type='oil'):
 
     if is_gas:
         G_val = values.get('G', 0)
-        Gp_val = values.get('Gp', 0)
         Bg_val = values.get('Bg', 0)
         Bgi_val = values.get('Bgi', 0)
         We_val = values.get('We', 0)

@@ -69,9 +69,10 @@ def _hydrate_from_query_params():
             continue
 
         if param_key in FLOAT_VARS:
-            parsed_val = pd.to_numeric(val, errors='coerce')
-            if pd.notna(parsed_val):
-                st.session_state[f"manual_{param_key}"] = float(parsed_val)
+            numeric_result = pd.to_numeric(val, errors='coerce')
+            if isinstance(numeric_result, (int, float)):
+                if not pd.isna(numeric_result):
+                    st.session_state[f"manual_{param_key}"] = float(numeric_result)
             continue
 
     st.session_state['_url_hydrated'] = True

@@ -13,7 +13,10 @@ def _parse_row_values(df, col_map, required_vars, row_index):
             row_values[var_name] = 0.0
             continue
         val = pd.to_numeric(df[col].iloc[row_index], errors='coerce')
-        row_values[var_name] = 0.0 if pd.isna(val) else float(val)
+        if isinstance(val, (int, float)):
+            row_values[var_name] = 0.0 if pd.isna(val) else float(val)
+        else:
+            row_values[var_name] = 0.0
     return row_values
 
 
@@ -30,12 +33,12 @@ def render_time_series(df, col_map):
     if delta_pressure_column is None or cumulative_oil_column is None:
         st.info("Pressure vs. Cumulative Production plot requires 'deltaP' and 'Np' columns.")
     else:
-        delta_pressure_values = pd.to_numeric(df[delta_pressure_column], errors='coerce')
-        cumulative_oil_values = pd.to_numeric(df[cumulative_oil_column], errors='coerce')
+        delta_pressure_series = pd.Series(pd.to_numeric(df[delta_pressure_column], errors='coerce'))
+        cumulative_oil_series = pd.Series(pd.to_numeric(df[cumulative_oil_column], errors='coerce'))
 
-        mask = delta_pressure_values.notna() & cumulative_oil_values.notna()
-        delta_pressure_values = delta_pressure_values[mask]
-        cumulative_oil_values = cumulative_oil_values[mask]
+        mask = delta_pressure_series.notna() & cumulative_oil_series.notna()
+        delta_pressure_values = delta_pressure_series[mask]
+        cumulative_oil_values = cumulative_oil_series[mask]
 
         pressure_chart = go.Figure()
         pressure_chart.add_trace(go.Scatter(
