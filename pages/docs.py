@@ -336,6 +336,68 @@ _example_button("▶️ Load Tutorial 4 in Calculator", {
     'auto_calculate': 'true',
 })
 
+st.markdown("---")
+
+st.subheader("Tutorial 5 — Volumetric Undersaturated (Example 11-3)")
+st.markdown("""
+*Goal: Find N using the F vs Eo+Efw plot for an undersaturated reservoir.*
+
+The volumetric undersaturated plot shows **F vs Eo + Efw** where the slope of
+the line is **N**. Download the CSV below, then:
+
+**Setup:**
+- Fluid: **Oil**
+- Target: **N**
+- Reservoir State: **Unsaturated**
+- Drives: all **OFF** (no gas cap, no water, no expansion)
+
+**What to do:**
+1. Upload the CSV file
+2. Click Calculate
+3. Scroll to the Havlena-Odeh section
+4. Look for the **Volumetric Undersaturated** plot
+
+**Expected result:** The trendline slope gives N (Initial Oil-in-Place).
+""")
+st.download_button(
+    "Download Example 11-3 CSV",
+    data=open("example_11_3_unsaturated.csv", "rb").read(),
+    file_name="example_11_3_unsaturated.csv",
+    mime="text/csv",
+    key="dl_ex11_3",
+)
+
+st.markdown("---")
+
+st.subheader("Tutorial 6 — Volumetric Saturated (Case 2)")
+st.markdown("""
+*Goal: Find N using the F vs Eo plot for a saturated reservoir with no drives.*
+
+The volumetric saturated plot shows **F vs Eo** (oil expansion only) where the
+slope is **N**. Download the CSV below, then:
+
+**Setup:**
+- Fluid: **Oil**
+- Target: **N**
+- Reservoir State: **Saturated**
+- Drives: all **OFF** (no gas cap, no water, no expansion)
+
+**What to do:**
+1. Upload the CSV file
+2. Click Calculate
+3. Scroll to the Havlena-Odeh section
+4. Look for the **Volumetric Saturated** plot
+
+**Expected result:** Slope ≈ 50,000,000 STB (N).
+""")
+st.download_button(
+    "Download Case 2 CSV",
+    data=open("case_2_saturated.csv", "rb").read(),
+    file_name="case_2_saturated.csv",
+    mime="text/csv",
+    key="dl_case_2",
+)
+
 
 # ── 4. Understanding the Results ────────────────────────────────────────────
 
@@ -389,6 +451,12 @@ in a scrollable table.
 ### CSV Export
 Click **Download Summary as CSV** to save the results table as
 `mbe_results.csv`.
+
+### Rp Sensitivity Analysis (Oil + Saturated only)
+After the Drive Indices pie chart, a "Rp Sensitivity Analysis" section
+appears for saturated oil reservoirs. It shows an interactive graph of
+how the Recovery Factor (RF) changes with Cumulative Produced GOR (Rp).
+A slider lets you pick different Rp values to see the corresponding RF.
 """)
 
 
@@ -548,13 +616,31 @@ Where:
 - $F$ = everything produced (oil, gas, water)
 - $E_t$ = everything that expanded (oil, gas cap, rock, water)
 
-When you upload a CSV with multiple rows (one per time step), the app plots
-$F$ vs $E_t$. A straight line through the origin confirms your drive mechanism
-assumptions are correct. The slope of the line is $N$.
+When you upload a CSV with multiple rows (one per time step), the app first
+plots $F$ vs $E_t$. A straight line through the origin confirms your drive
+mechanism assumptions are correct.
 
 - **Straight line** — your m and We assumptions are correct
 - **Curves upward** — you're missing an energy source (try a larger m or We)
 - **Curves downward** — you're overestimating the energy
+
+### Parameterized Havlena-Odeh Plots
+
+Depending on your sidebar configuration, the app also shows specialized
+linear regressions for different drive mechanisms:
+
+| Reservoir State | Drive Type | Plot | Intercept | Slope |
+|---|---|---|---|---|
+| Unsaturated (no gas, no water) | Volumetric Undersaturated | $F$ vs $E_o + E_{fw}$ | — | $N$ |
+| Saturated (no gas cap, no water) | Volumetric Saturated | $F$ vs $E_o$ | — | $N$ |
+| Saturated (gas cap active) | Gas Cap Drive | $F/E_o$ vs $E_{gc}/E_o$ | $N$ | $m \times N$ |
+| Saturated (water drive active) | Water Drive | $F/E_o$ vs $\Delta P / E_o$ | $N$ | $K$ |
+
+Where the expansion terms are:
+- $E_o = (B_o - B_{oi}) + (R_{si} - R_s) B_g$ — oil shrinkage + solution gas
+- $E_{gc} = B_{oi} (B_g / B_{gi} - 1)$ — gas cap expansion (without m)
+- $E_{fw}$ — rock and water expansion
+- $K$ — water influx constant (from the linear aquifer model $W_e = K \cdot \Delta P$)
 """)
 
 

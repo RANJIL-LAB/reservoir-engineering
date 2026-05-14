@@ -15,6 +15,10 @@ def _apply_unsaturated_overrides(known_values, is_unsaturated):
         known_values['Rs'] = known_values['Rp']
 
 
+def _clear_calculated():
+    st.session_state['calculated'] = False
+
+
 def render_manual_input(var_info, target_var, forced_zeros, is_unsaturated, fluid_type='oil'):
     st.subheader("Enter Known Variables")
 
@@ -40,7 +44,8 @@ def render_manual_input(var_info, target_var, forced_zeros, is_unsaturated, flui
             value=default_for_widget,
             format=info['format'],
             min_value=min_val,
-            key=f"manual_{var}"
+            key=f"manual_{var}",
+            on_change=_clear_calculated,
         )
         known_values[var] = val
 
@@ -94,22 +99,39 @@ def render_file_upload(var_info, target_var, forced_zeros, is_unsaturated, fluid
     display_order = GAS_VARS if fluid_type == 'gas' else OIL_VARS
 
     known_values = {}
+    missing_vars = []
     for var in display_order:
         if var == target_var:
             continue
         if var in forced_zeros:
             continue
-        if var not in col_map:
-            continue
+        if var in col_map:
+            clean_col = pd.to_numeric(df[col_map[var]], errors='coerce')
+            raw_val = clean_col.iloc[0]
 
-        raw_val = pd.to_numeric(df[col_map[var]].iloc[0], errors='coerce')
-        if isinstance(raw_val, (int, float)):
-            if pd.isna(raw_val):
-                st.warning(f"Could not read value for '{var}' from column '{col_map[var]}'.")
-            else:
+            if pd.notna(raw_val):
                 known_values[var] = float(raw_val)
+            else:
+                st.warning(f"Could not read a valid numeric value for '{var}' from column '{col_map[var]}'.")
         else:
-            st.warning(f"Could not read value for '{var}' from column '{col_map[var]}'.")
+            missing_vars.append(var)
+
+    if missing_vars:
+        st.subheader("Enter Missing Values from File")
+        col_left_missing, col_right_missing = st.columns(2)
+        for idx, var in enumerate(missing_vars):
+            info = var_info[var]
+            container = col_left_missing if idx % 2 == 0 else col_right_missing
+            min_val = 0.0 if var not in ('deltaP',) else None
+            default_for_widget = st.session_state.get(f"file_{var}", info['default'])
+            val = container.number_input(
+                info['label'],
+                value=default_for_widget,
+                format=info['format'],
+                min_value=min_val,
+                key=f"file_{var}",
+            )
+            known_values[var] = val
 
     _apply_unsaturated_overrides(known_values, is_unsaturated)
 

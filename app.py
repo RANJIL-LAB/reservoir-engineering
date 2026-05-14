@@ -69,10 +69,10 @@ def _hydrate_from_query_params():
             continue
 
         if param_key in FLOAT_VARS:
-            numeric_result = pd.to_numeric(val, errors='coerce')
-            if isinstance(numeric_result, (int, float)):
-                if not pd.isna(numeric_result):
-                    st.session_state[f"manual_{param_key}"] = float(numeric_result)
+            try:
+                st.session_state[f"manual_{param_key}"] = float(val)
+            except (ValueError, TypeError):
+                pass
             continue
 
     st.session_state['_url_hydrated'] = True
@@ -170,17 +170,22 @@ if trigger_calc:
         t_elapsed = time.perf_counter() - t_start
 
     all_vals = result.get('all_values', {})
+    for k, v in known_values.items():
+        if k not in all_vals:
+            all_vals[k] = v
 
     st.session_state['calculated'] = True
-    st.session_state['_result'] = result
-    st.session_state['_target_var'] = target_var
-    st.session_state['_forced_zeros'] = forced_zeros
-    st.session_state['_all_vals'] = all_vals
-    st.session_state['_t_elapsed'] = t_elapsed
-    st.session_state['_fluid_type'] = fluid_type
-    st.session_state['_is_unsaturated'] = is_unsaturated
-    st.session_state['_df'] = df
-    st.session_state['_col_map'] = col_map
+    st.session_state['results_data'] = {
+        'result': result,
+        'target_var': target_var,
+        'forced_zeros': forced_zeros,
+        'all_vals': all_vals,
+        't_elapsed': t_elapsed,
+        'fluid_type': fluid_type,
+        'is_unsaturated': is_unsaturated,
+        'df': df,
+        'col_map': col_map,
+    }
     st.session_state['_prev_cfg_fp'] = cfg_fingerprint
     st.session_state['_prev_inp_fp'] = input_fingerprint
 
@@ -188,30 +193,24 @@ if trigger_calc:
         auto_calculate = False
 
 if st.session_state.get('calculated', False):
+    rd = st.session_state['results_data']
+    _df = rd.get('df')
+    _col_map = rd.get('col_map', {})
+
     render_results(
-        st.session_state['_result'],
-        st.session_state['_target_var'],
-        st.session_state['_forced_zeros'],
-        st.session_state['_all_vals'],
-        st.session_state['_t_elapsed'],
+        rd['result'],
+        rd['target_var'],
+        rd['forced_zeros'],
+        rd['all_vals'],
+        rd['t_elapsed'],
         var_info,
         all_vars,
-        st.session_state['_fluid_type'],
+        rd['fluid_type'],
+        df=_df,
     )
-
-    _df = st.session_state.get('_df')
-    _col_map = st.session_state.get('_col_map', {})
     if _df is not None and len(_df) > 1:
-        render_time_series(_df, _col_map)
+        render_time_series(_df, _col_map, rd['forced_zeros'], rd['fluid_type'], rd['is_unsaturated'], rd['all_vals'])
 
-    if (
-        st.session_state['_fluid_type'] == 'oil'
-        and not st.session_state['_is_unsaturated']
-    ):
+    if rd['fluid_type'] == 'oil' and not rd['is_unsaturated']:
         st.markdown("---")
-        st.subheader("Rp Sensitivity Analysis")
-        st.caption(
-            "Explore how the Cumulative Produced GOR (Rp) affects the "
-            "predicted Recovery Factor (RF) based on current reservoir conditions."
-        )
-        render_rp_sensitivity(st.session_state['_all_vals'])
+        render_rp_sensitivity(rd['all_vals'])

@@ -28,11 +28,19 @@ def render_results(
     var_info: dict,
     all_vars: list,
     fluid_type: str = 'oil',
+    df=None,
 ) -> None:
     is_gas = (fluid_type == 'gas')
+    has_time_series = df is not None and len(df) > 1
 
     if not result['success']:
-        st.error(f"Calculation failed: {result['error_message']}")
+        if has_time_series:
+            st.warning(
+                f"Single-point solver note: {result['error_message']}. "
+                "Time-series plots are generated below using the uploaded data."
+            )
+        else:
+            st.error(f"Calculation failed: {result['error_message']}")
         return
 
     st.success("Calculation successful!")

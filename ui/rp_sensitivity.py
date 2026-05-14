@@ -4,13 +4,19 @@ import plotly.graph_objects as go
 
 
 def render_rp_sensitivity(all_vals):
-    Bo = all_vals.get('Bo') or 1.0
-    Boi = all_vals.get('Boi') or 1.0
-    Rsi = all_vals.get('Rsi') or 0.0
-    Rs = all_vals.get('Rs') or 0.0
-    Bg = all_vals.get('Bg') or 0.0
-    Bgi = all_vals.get('Bgi') or 0.001
-    m = all_vals.get('m') or 0.0
+    st.subheader("Rp Sensitivity Analysis")
+    st.caption(
+        "Explore how the Cumulative Produced GOR (Rp) affects the "
+        "predicted Recovery Factor (RF) based on current reservoir conditions."
+    )
+
+    Bo = all_vals.get('Bo') if all_vals.get('Bo') is not None else 1.0
+    Boi = all_vals.get('Boi') if all_vals.get('Boi') is not None else 1.0
+    Rsi = all_vals.get('Rsi') if all_vals.get('Rsi') is not None else 0.0
+    Rs = all_vals.get('Rs') if all_vals.get('Rs') is not None else 0.0
+    Bg = all_vals.get('Bg') if all_vals.get('Bg') is not None else 0.0
+    Bgi = all_vals.get('Bgi') if all_vals.get('Bgi') is not None else 0.001
+    m = all_vals.get('m') if all_vals.get('m') is not None else 0.0
 
     actual_produced_gor = all_vals.get('Rp') if all_vals.get('Rp') is not None else 800.0
 
@@ -44,7 +50,7 @@ def render_rp_sensitivity(all_vals):
     with col2:
         st.metric("Recovery Factor (RF)", f"{recovery_factor_at_selected_rp:.2f}%")
 
-    produced_gor_range = np.linspace(0, 3000, 301)
+    produced_gor_range = np.arange(0, 3050, 50)
     denominator_curve = Bo + (produced_gor_range - Rs) * Bg
 
     with np.errstate(divide='ignore', invalid='ignore'):
