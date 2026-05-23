@@ -1,5 +1,6 @@
-import streamlit as st
 import urllib.parse
+
+import streamlit as st
 
 st.set_page_config(
     page_title="User Manual — MBE Tool",
@@ -18,9 +19,9 @@ def _example_button(label: str, params: dict):
     url = _build_url(params)
     st.markdown(
         f'<a href="{url}" target="_self" style="display:inline-block;'
-        f'padding:0.5em 1em;background:#1f77b4;color:white;'
+        f"padding:0.5em 1em;background:#1f77b4;color:white;"
         f'text-decoration:none;border-radius:6px;font-weight:bold;">'
-        f'{label}</a>',
+        f"{label}</a>",
         unsafe_allow_html=True,
     )
 
@@ -129,11 +130,11 @@ description, and a sensible default value. The app automatically hides:
 Only fill in what you see. If a variable is missing from the screen, the app
 is handling it for you.
 
-**File Upload (CSV/Excel)**
-Drop a spreadsheet file to load data from columns. The app matches column
-names to variables (case-insensitive — `np` and `Np` both work). Only the
-first row is used for calculation; if your file has multiple rows, the app
-also generates time-series charts (Pressure vs Np, Havlena-Odeh F vs Et).
+**Time-Series Table**
+Below the manual input fields, an expandable table lets you enter
+multiple rows of time-varying data (production volumes, PVT properties
+at different pressures). Enter at least two rows to unlock the
+Pressure-Decline and Havlena-Odeh regression plots.
 
 Hit the big blue **Calculate** button when you're ready. If you arrived here
 from a tutorial link, the calculation runs automatically.
@@ -175,24 +176,27 @@ The app hides every variable related to gas and water. You see only seven
 input boxes — clean and simple. The answer is a modest oil-in-place number,
 driven entirely by rock and fluid compressibility.
 """)
-_example_button("▶️ Load Tutorial 1 in Calculator", {
-    'target_var': 'N',
-    'fluid_type': 'Oil',
-    'reservoir_state': 'Unsaturated',
-    'water_drive_active': 'false',
-    'gas_cap_active': 'false',
-    'expansion_active': 'true',
-    'Np': '1000',
-    'Bo': '1.2511',
-    'Boi': '1.2417',
-    'Rs': '0',
-    'Rsi': '0',
-    'Swi': '0.20',
-    'cw': '0.000003',
-    'cf': '0.0000086',
-    'deltaP': '670',
-    'auto_calculate': 'true',
-})
+_example_button(
+    "▶️ Load Tutorial 1 in Calculator",
+    {
+        "target_var": "N",
+        "fluid_type": "Oil",
+        "reservoir_state": "Unsaturated",
+        "water_drive_active": "false",
+        "gas_cap_active": "false",
+        "expansion_active": "true",
+        "Np": "1000",
+        "Bo": "1.2511",
+        "Boi": "1.2417",
+        "Rs": "0",
+        "Rsi": "0",
+        "Swi": "0.20",
+        "cw": "0.000003",
+        "cf": "0.0000086",
+        "deltaP": "670",
+        "auto_calculate": "true",
+    },
+)
 
 st.markdown("---")
 
@@ -224,31 +228,34 @@ three drive mechanisms are active.
 The solver rearranges the MBE to isolate We. The pie chart shows how much each
 mechanism contributes — with all three drives active, you'll see four slices.
 """)
-_example_button("▶️ Load Tutorial 2 in Calculator", {
-    'target_var': 'We',
-    'fluid_type': 'Oil',
-    'reservoir_state': 'Saturated',
-    'water_drive_active': 'true',
-    'gas_cap_active': 'true',
-    'expansion_active': 'true',
-    'N': '10000000',
-    'Np': '1000000',
-    'Bo': '1.4800',
-    'Boi': '1.58',
-    'Rsi': '1040',
-    'Rs': '850',
-    'Rp': '1100',
-    'Bg': '0.00092',
-    'Bgi': '0.00080',
-    'Wp': '50000',
-    'Bw': '1.0',
-    'm': '0.25',
-    'Swi': '0.20',
-    'cw': '0.0000015',
-    'cf': '0.000001',
-    'deltaP': '200',
-    'auto_calculate': 'true',
-})
+_example_button(
+    "▶️ Load Tutorial 2 in Calculator",
+    {
+        "target_var": "We",
+        "fluid_type": "Oil",
+        "reservoir_state": "Saturated",
+        "water_drive_active": "true",
+        "gas_cap_active": "true",
+        "expansion_active": "true",
+        "N": "10000000",
+        "Np": "1000000",
+        "Bo": "1.4800",
+        "Boi": "1.58",
+        "Rsi": "1040",
+        "Rs": "850",
+        "Rp": "1100",
+        "Bg": "0.00092",
+        "Bgi": "0.00080",
+        "Wp": "50000",
+        "Bw": "1.0",
+        "m": "0.25",
+        "Swi": "0.20",
+        "cw": "0.0000015",
+        "cf": "0.000001",
+        "deltaP": "200",
+        "auto_calculate": "true",
+    },
+)
 
 st.markdown("---")
 
@@ -279,27 +286,30 @@ With expansion off, variables like Swi, cw, cf, and deltaP disappear. The
 result — about 36.6 MMSTB — matches the classic reservoir engineering
 reference problem.
 """)
-_example_button("▶️ Load Tutorial 3 in Calculator", {
-    'target_var': 'N',
-    'fluid_type': 'Oil',
-    'reservoir_state': 'Saturated',
-    'water_drive_active': 'true',
-    'gas_cap_active': 'true',
-    'expansion_active': 'false',
-    'Np': '5000000',
-    'Bo': '1.33',
-    'Boi': '1.35',
-    'Rsi': '600',
-    'Rs': '500',
-    'Rp': '1100',
-    'Bg': '0.0015',
-    'Bgi': '0.0011',
-    'We': '3000000',
-    'Wp': '200000',
-    'Bw': '1.0',
-    'm': '0.2',
-    'auto_calculate': 'true',
-})
+_example_button(
+    "▶️ Load Tutorial 3 in Calculator",
+    {
+        "target_var": "N",
+        "fluid_type": "Oil",
+        "reservoir_state": "Saturated",
+        "water_drive_active": "true",
+        "gas_cap_active": "true",
+        "expansion_active": "false",
+        "Np": "5000000",
+        "Bo": "1.33",
+        "Boi": "1.35",
+        "Rsi": "600",
+        "Rs": "500",
+        "Rp": "1100",
+        "Bg": "0.0015",
+        "Bgi": "0.0011",
+        "We": "3000000",
+        "Wp": "200000",
+        "Bw": "1.0",
+        "m": "0.2",
+        "auto_calculate": "true",
+    },
+)
 
 st.markdown("---")
 
@@ -325,16 +335,19 @@ With only three inputs, the solver calculates G = 25,000,000 Mscf (25 Bscf).
 The drive chart shows a single "Gas Expansion" slice. This is the simplest
 possible MBE calculation.
 """)
-_example_button("▶️ Load Tutorial 4 in Calculator", {
-    'target_var': 'G',
-    'fluid_type': 'Gas',
-    'water_drive_active': 'false',
-    'expansion_active': 'false',
-    'Gp': '5000000',
-    'Bg': '0.0015',
-    'Bgi': '0.0012',
-    'auto_calculate': 'true',
-})
+_example_button(
+    "▶️ Load Tutorial 4 in Calculator",
+    {
+        "target_var": "G",
+        "fluid_type": "Gas",
+        "water_drive_active": "false",
+        "expansion_active": "false",
+        "Gp": "5000000",
+        "Bg": "0.0015",
+        "Bgi": "0.0012",
+        "auto_calculate": "true",
+    },
+)
 
 st.markdown("---")
 
@@ -343,7 +356,7 @@ st.markdown("""
 *Goal: Find N using the F vs Eo+Efw plot for an undersaturated reservoir.*
 
 The volumetric undersaturated plot shows **F vs Eo + Efw** where the slope of
-the line is **N**. Download the CSV below, then:
+the line is **N**. Enter the data below into the time-series table, then:
 
 **Setup:**
 - Fluid: **Oil**
@@ -352,20 +365,50 @@ the line is **N**. Download the CSV below, then:
 - Drives: all **OFF** (no gas cap, no water, no expansion)
 
 **What to do:**
-1. Upload the CSV file
-2. Click Calculate
-3. Scroll to the Havlena-Odeh section
-4. Look for the **Volumetric Undersaturated** plot
+1. Expand the **"📊 Optional: Time-Series Data"** section below the manual inputs
+2. Copy the data from the table below into the editable grid (each row = one pressure step)
+3. Click Calculate
+4. Scroll to the Havlena-Odeh section
+5. Look for the **Volumetric Undersaturated** plot
 
 **Expected result:** The trendline slope gives N (Initial Oil-in-Place).
 """)
-st.download_button(
-    "Download Example 11-3 CSV",
-    data=open("example_11_3_unsaturated.csv", "rb").read(),
-    file_name="example_11_3_unsaturated.csv",
-    mime="text/csv",
-    key="dl_ex11_3",
-)
+with st.expander("📋 Example 11-3 Data — copy into the time-series table"):
+    st.dataframe(
+        {
+            "Np (STB)": [
+                20481,
+                34750,
+                78557,
+                101846,
+                215681,
+                364613,
+                542985,
+                841591,
+                1273530,
+                1691887,
+                2127077,
+                2575330,
+            ],
+            "Bo (bbl/STB)": [
+                1.3104,
+                1.3104,
+                1.3105,
+                1.3105,
+                1.3109,
+                1.3116,
+                1.3122,
+                1.3128,
+                1.3130,
+                1.3150,
+                1.3160,
+                1.3170,
+            ],
+            "Wp (bbl)": [0, 0, 0, 0, 0, 0, 159, 805, 2579, 5008, 6500, 8000],
+            "deltaP (psi)": [5, 9, 18, 21, 45, 80, 118, 170, 237, 325, 410, 497],
+        }
+    )
+
 
 st.markdown("---")
 
@@ -374,7 +417,7 @@ st.markdown("""
 *Goal: Find N using the F vs Eo plot for a saturated reservoir with no drives.*
 
 The volumetric saturated plot shows **F vs Eo** (oil expansion only) where the
-slope is **N**. Download the CSV below, then:
+slope is **N**. Enter the data below into the time-series table, then:
 
 **Setup:**
 - Fluid: **Oil**
@@ -383,21 +426,61 @@ slope is **N**. Download the CSV below, then:
 - Drives: all **OFF** (no gas cap, no water, no expansion)
 
 **What to do:**
-1. Upload the CSV file
-2. Click Calculate
-3. Scroll to the Havlena-Odeh section
-4. Look for the **Volumetric Saturated** plot
+1. Expand the **"📊 Optional: Time-Series Data"** section below the manual inputs
+2. Copy the data from the table below into the editable grid
+3. Click Calculate
+4. Scroll to the Havlena-Odeh section
+5. Look for the **Volumetric Saturated** plot
 
 **Expected result:** Slope ≈ 50,000,000 STB (N).
 """)
-st.download_button(
-    "Download Case 2 CSV",
-    data=open("case_2_saturated.csv", "rb").read(),
-    file_name="case_2_saturated.csv",
-    mime="text/csv",
-    key="dl_case_2",
-)
+with st.expander("📋 Case 2 Data — copy into the time-series table"):
+    st.dataframe(
+        {
+            "Np (STB)": [
+                500000,
+                1200000,
+                2500000,
+                4000000,
+                6000000,
+                8000000,
+                11000000,
+                14000000,
+                17000000,
+                20000000,
+            ],
+            "Rp (scf/STB)": [600, 700, 850, 1050, 1300, 1600, 2000, 2500, 3100, 3800],
+            "Bo (bbl/STB)": [
+                1.38,
+                1.42,
+                1.48,
+                1.55,
+                1.62,
+                1.70,
+                1.80,
+                1.92,
+                2.05,
+                2.20,
+            ],
+            "Rs (scf/STB)": [550, 500, 440, 380, 320, 260, 200, 150, 100, 60],
+            "Bg (bbl/scf)": [
+                0.0012,
+                0.0013,
+                0.0015,
+                0.0018,
+                0.0022,
+                0.0028,
+                0.0036,
+                0.0048,
+                0.0065,
+                0.0090,
+            ],
+            "deltaP (psi)": [100, 250, 500, 800, 1200, 1700, 2300, 3000, 3800, 4700],
+        }
+    )
 
+
+# ── 4. Understanding the Results
 
 # ── 4. Understanding the Results ────────────────────────────────────────────
 
@@ -616,8 +699,9 @@ Where:
 - $F$ = everything produced (oil, gas, water)
 - $E_t$ = everything that expanded (oil, gas cap, rock, water)
 
-When you upload a CSV with multiple rows (one per time step), the app first
-plots $F$ vs $E_t$. A straight line through the origin confirms your drive
+When you enter multiple rows in the time-series table (one per time step),
+the app first plots $F$ vs $E_t$. A straight line through the origin confirms
+your drive
 mechanism assumptions are correct.
 
 - **Straight line** — your m and We assumptions are correct
@@ -684,8 +768,9 @@ st.markdown("""
    but the chart shows 100% "Solution Gas Drive," your We value is probably
    wrong or missing.
 
-4. **CSV column names are case-insensitive.** Upload a file with columns
-   named `np`, `bt`, `WE` — they'll all map correctly.
+4. **The time-series table uses your sidebar constants.** Variables like
+   Boi, Bgi, Rsi, Bw, Swi, cw, cf, and m come from your manual inputs
+   above the table. Only enter what changes with each time step.
 
 5. **For gas reservoirs, switch the fluid type first.** The interface
    completely changes — fewer variables, different target options.
