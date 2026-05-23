@@ -5,6 +5,9 @@ import streamlit as st
 
 from mbe_solver import compute_mbe_derived_terms
 from models.water_influx import compute_water_influx_series
+from models.gas_hod import pz_vs_gp, gas_f_vs_eg, detect_water_drive_from_pz
+from models.roach import roach_alpha_beta, roach_fit
+from models.gas_tight import stabilization_time_radial, stabilization_time_fractured
 
 
 def _render_gas_cap_plot(eo_values, egc_values, f_values):
@@ -224,12 +227,14 @@ def _render_volumetric_undersaturated_plot(eo_values, efw_values, f_values):
     if len(x_clean) < 2:
         st.info("Not enough valid data points for F vs Eo+Efw regression.")
         return
-    with st.expander("Advanced Regression Settings", expanded=True):
+    col_a, col_b = st.columns([1, 1])
+    with col_a:
         force_origin = st.checkbox(
             "Force line through origin (0,0)",
             value=True,
             key="origin_vol_unsat",
         )
+    with col_b:
         ignore_points = st.slider(
             "Ignore early data points",
             0,
@@ -306,12 +311,14 @@ def _render_volumetric_saturated_plot(eo_values, f_values):
     if len(x_clean) < 2:
         st.info("Not enough valid data points for F vs Eo regression.")
         return
-    with st.expander("Advanced Regression Settings", expanded=True):
+    col_a, col_b = st.columns([1, 1])
+    with col_a:
         force_origin = st.checkbox(
             "Force line through origin (0,0)",
             value=True,
             key="origin_vol_sat",
         )
+    with col_b:
         ignore_points = st.slider(
             "Ignore early data points",
             0,
@@ -421,6 +428,12 @@ def _render_ts_content(
     water_influx_model="none",
     water_influx_params=None,
 ):
+
+    if fluid_type == "gas":
+        _render_gas_ts_content(
+            df, col_map, all_vals, water_influx_model, water_influx_params
+        )
+        return
 
     def get_val(var_name, row_series):
         if var_name in col_map and col_map[var_name] in df.columns:
@@ -641,3 +654,323 @@ or different drive mechanisms may be active.
                     _render_water_drive_plot(
                         eo_values, delta_p_values, total_withdrawal_values
                     )
+
+
+def _render_gas_ts_content(
+    df, col_map, all_vals, water_influx_model="none", water_influx_params=None
+):
+    """Gas-specific time-series analysis: p/Z vs Gp, F vs Eg, linear aquifer, Roach."""
+
+    def get_val(var_name, row_series):
+        if var_name in col_map and col_map[var_name] in df.columns:
+            val = pd.to_numeric(row_series[col_map[var_name]], errors="coerce")
+            if pd.notna(val):
+                return float(val)
+        return float(all_vals.get(var_name, 0.0) or 0.0)
+
+    p_vals, z_vals, gp_vals, bg_vals, wp_vals = [], [], [], [], []
+    z_key = None
+    for c in df.columns:
+        if c.lower() in ["z", "z_factor", "gas_deviation"]:
+            z_key = c
+            break
+
+    for i in range(len(df)):
+        row = df.iloc[i]
+        p_vals.append(get_val("p", row))
+        gp_vals.append(get_val("Gp", row))
+        bg_vals.append(get_val("Bg", row))
+        wp_vals.append(get_val("Wp", row))
+        z_val = pd.to_numeric(row[z_key], errors="coerce") if z_key else None
+        z_vals.append(
+            float(z_val)
+            if z_val is not None and pd.notna(z_val)
+            else all_vals.get("Z", 0.8)
+        )
+
+    p_arr = np.array(p_vals)
+    gp_arr = np.array(gp_vals)
+    bg_arr = np.array(bg_vals)
+    z_arr = np.array(z_vals)
+
+    st.markdown("---")
+    st.subheader("Gas Reservoir Time-Series Analysis")
+
+    # ── 1. p/Z vs Gp plot ────────────────────────────────────────────
+    pz_data = pz_vs_gp(p_arr, z_arr, gp_arr)
+    fig_pz = go.Figure()
+    fig_pz.add_trace(
+        go.Scatter(
+            x=pz_data["gp"],
+            y=pz_data["pz"],
+            mode="lines+markers",
+            name="p/Z",
+            line=dict(color="#1f77b4"),
+        )
+    )
+    if len(p_arr) >= 2:
+        try:
+            coeffs = np.polyfit(pz_data["gp"], pz_data["pz"], 1)
+            trend = np.polyval(coeffs, pz_data["gp"])
+            fig_pz.add_trace(
+                go.Scatter(
+                    x=pz_data["gp"],
+                    y=trend,
+                    mode="lines",
+                    name="Trend",
+                    line=dict(color="#ff7f0e", dash="dash"),
+                )
+            )
+            g_estimate = -pz_data["pi_zi"] / coeffs[0] if coeffs[0] != 0 else 0
+        except (np.linalg.LinAlgError, ValueError):
+            g_estimate = None
+    fig_pz.update_layout(
+        title="p/Z vs Cumulative Gas Production",
+        xaxis_title="Gp (scf)",
+        yaxis_title="p/Z (psi)",
+        height=400,
+    )
+    st.plotly_chart(fig_pz, use_container_width=True)
+    if g_estimate and g_estimate > 0:
+        wd = detect_water_drive_from_pz(pz_data["pz"], pz_data["gp"])
+        st.markdown(
+            f"**G estimate:** {g_estimate:,.0f} scf | "
+            f"Curvature={wd['curvature']:.4f} | "
+            f"{'Water drive suspected' if wd['is_water_drive'] else 'Volumetric'}"
+        )
+    st.markdown("---")
+
+    # ── 2. F vs Eg Havlena-Odeh plot ─────────────────────────────────
+    Bgi = float(bg_arr[0]) if len(bg_arr) > 0 else 0
+    hod = gas_f_vs_eg(None, bg_arr, Bgi, gp_arr, np.array(wp_vals), 1.0)
+    fig_feg = go.Figure()
+    valid_eg = np.abs(hod["Eg"]) > 1e-15
+    fig_feg.add_trace(
+        go.Scatter(
+            x=hod["Eg"][valid_eg],
+            y=hod["F"][valid_eg],
+            mode="lines+markers",
+            name="F vs Eg",
+            line=dict(color="#2ca02c"),
+        )
+    )
+    if np.sum(valid_eg) >= 2:
+        try:
+            slope = np.sum(hod["F"][valid_eg] * hod["Eg"][valid_eg]) / np.sum(
+                hod["Eg"][valid_eg] ** 2
+            )
+            trend_line = slope * hod["Eg"][valid_eg]
+            fig_feg.add_trace(
+                go.Scatter(
+                    x=hod["Eg"][valid_eg],
+                    y=trend_line,
+                    mode="lines",
+                    name=f"G ≈ {slope:,.0f}",
+                    line=dict(color="#d62728", dash="dash"),
+                )
+            )
+        except Exception:
+            pass
+    fig_feg.update_layout(
+        title="F vs Eg (Gas Havlena-Odeh)",
+        xaxis_title="Eg = Bg - Bgi (bbl/scf)",
+        yaxis_title="F = Gp*Bg + Wp*Bw (bbl)",
+        height=400,
+    )
+    st.plotly_chart(fig_feg, use_container_width=True)
+
+    # ── 3. Water influx diagnostic for gas ────────────────────────────
+    if water_influx_model not in (None, "none") and water_influx_params:
+        we_values = _compute_gas_we_series(
+            water_influx_model, water_influx_params, p_vals
+        )
+        if we_values is not None and any(w != 0 for w in we_values):
+            st.markdown("---")
+            st.subheader("Gas Water Influx Diagnostic")
+            _render_gas_we_diagnostic(hod["F"], hod["Eg"], we_values)
+
+    # ── 4. Roach's alpha/beta plot ────────────────────────────────────
+    if len(z_vals) >= 3 and np.std(z_arr) > 0.01:
+        st.markdown("---")
+        st.subheader("Roach α/β Plot (Abnormally Pressured Gas)")
+        pi = p_vals[0]
+        zi = z_vals[0]
+        rb = roach_alpha_beta(p_vals, z_vals, pi, zi)
+        valid_r = (
+            np.isfinite(rb["alpha"])
+            & np.isfinite(rb["beta"])
+            & (np.abs(rb["alpha"]) > 1e-15)
+            & (np.abs(rb["beta"]) > 1e-15)
+        )
+        fig_r = go.Figure()
+        fig_r.add_trace(
+            go.Scatter(
+                x=rb["alpha"][valid_r],
+                y=rb["beta"][valid_r],
+                mode="markers",
+                marker=dict(color="#9467bd", size=8),
+                name="α vs β",
+            )
+        )
+        if np.sum(valid_r) >= 2:
+            try:
+                coeffs_r = np.polyfit(rb["alpha"][valid_r], rb["beta"][valid_r], 1)
+                trend_r = np.polyval(coeffs_r, rb["alpha"][valid_r])
+                fig_r.add_trace(
+                    go.Scatter(
+                        x=rb["alpha"][valid_r],
+                        y=trend_r,
+                        mode="lines",
+                        name="Fit",
+                        line=dict(color="#8c564b", dash="dash"),
+                    )
+                )
+                G_roach = 1.0 / coeffs_r[0] if coeffs_r[0] != 0 else 0
+                ER_roach = -coeffs_r[1]
+                st.markdown(
+                    f"**Roach estimate:** G = {G_roach:,.0f} scf, "
+                    f"ER = {ER_roach:.4e} psi⁻¹"
+                )
+            except Exception:
+                pass
+        fig_r.update_layout(
+            title="Roach Method: α vs β",
+            xaxis_title="α (psi⁻¹)",
+            yaxis_title="β (psi⁻¹)",
+            height=400,
+        )
+        st.plotly_chart(fig_r, use_container_width=True)
+
+    # ── 5. tpss calculator ────────────────────────────────────────────
+    st.markdown("---")
+    st.subheader("Gas Stabilization Time (tpss)")
+    with st.expander("Calculate minimum shut-in time", expanded=False):
+        col_a, col_b = st.columns(2)
+        with col_a:
+            phi_in = st.number_input(
+                "Porosity φ", min_value=0.0, value=0.14, step=0.01, key="tpss_phi"
+            )
+            mu_in = st.number_input(
+                "Gas viscosity μg (cp)",
+                min_value=0.0,
+                value=0.016,
+                step=0.001,
+                key="tpss_mu",
+            )
+            ct_in = st.number_input(
+                "Total compressibility ct (psi⁻¹)",
+                min_value=0.0,
+                value=8e-4,
+                step=1e-4,
+                format="%.2e",
+                key="tpss_ct",
+            )
+        with col_b:
+            k_in = st.number_input(
+                "Permeability k (md)", min_value=0.0, value=0.1, step=0.1, key="tpss_k"
+            )
+            acres_in = st.number_input(
+                "Drainage area (acres)",
+                min_value=0.0,
+                value=40.0,
+                step=10.0,
+                key="tpss_acres",
+            )
+            xf_in = st.number_input(
+                "Fracture half-length xf (ft, 0=unfractured)",
+                min_value=0,
+                value=0,
+                step=50,
+                key="tpss_xf",
+            )
+
+        if st.button("Calculate tpss", key="tpss_btn"):
+            t_rad = stabilization_time_radial(
+                phi_in, mu_in, ct_in, A_acres=acres_in, k=k_in
+            )
+            st.metric(
+                "Radial tpss",
+                f"{t_rad:.0f} days ({t_rad / 30.44:.1f} months)"
+                if t_rad > 0
+                else "N/A",
+            )
+            if xf_in > 0:
+                t_frac = stabilization_time_fractured(phi_in, mu_in, ct_in, xf_in, k_in)
+                st.metric(
+                    "Fractured tpss",
+                    f"{t_frac:.0f} days ({t_frac / 30.44:.1f} months)"
+                    if t_frac > 0
+                    else "N/A",
+                )
+
+
+def _compute_gas_we_series(model_type, params, p_vals):
+    """Compute We series for gas using selected water influx model."""
+    from models.water_influx import compute_water_influx_series
+
+    try:
+        wf_params = dict(params)
+        wf_params["pi"] = p_vals[0] if len(p_vals) > 0 else 0
+        return compute_water_influx_series(
+            model_type, wf_params, p_vals, t_history=list(range(len(p_vals)))
+        )
+    except Exception:
+        return None
+
+
+def _render_gas_we_diagnostic(F, Eg, we_values):
+    """F/Eg vs We/Eg plot for gas water influx diagnostic."""
+    F_arr = np.array(F)
+    Eg_arr = np.array(Eg)
+    We_arr = np.array(we_values)
+    valid = np.abs(Eg_arr) > 1e-15
+    x = np.divide(We_arr[valid], Eg_arr[valid])
+    y = np.divide(F_arr[valid], Eg_arr[valid])
+    if len(x) < 2:
+        st.info("Not enough data for water influx diagnostic.")
+        return
+    try:
+        slope, intercept = np.polyfit(x, y, 1)
+    except (np.linalg.LinAlgError, ValueError):
+        st.info("Water influx diagnostic failed.")
+        return
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=x, y=y, mode="markers", name="Data", marker=dict(color="#1f77b4", size=8)
+        )
+    )
+    trend_x = np.linspace(x.min(), x.max(), 100)
+    trend_y = slope * trend_x + intercept
+    fig.add_trace(
+        go.Scatter(
+            x=trend_x,
+            y=trend_y,
+            mode="lines",
+            name=f"Slope={slope:.3f}",
+            line=dict(color="#ff7f0e", dash="dash"),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=trend_x,
+            y=trend_x + intercept,
+            mode="lines",
+            name="45° ideal",
+            line=dict(color="#2ca02c", dash="dot"),
+        )
+    )
+    fig.update_layout(
+        title="Gas Water Influx Diagnostic: F/Eg vs We/Eg",
+        xaxis_title="We / Eg",
+        yaxis_title="F / Eg",
+        height=400,
+    )
+    st.plotly_chart(fig, use_container_width=True)
+    dev = abs(slope - 1.0)
+    if dev < 0.1:
+        st.markdown("Model fits well (slope close to 1.0)")
+    elif slope > 1.1:
+        st.markdown("Model underestimates — try larger aquifer")
+    elif slope < 0.9:
+        st.markdown("Model overestimates — try smaller aquifer")

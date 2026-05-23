@@ -22,3 +22,12 @@ from .water_influx import (
     WATER_INFLUX_MODELS,
 )
 from .pressure_estimate import estimate_average_pressure
+from .gas_hod import (
+    pz_vs_gp,
+    gas_f_vs_eg,
+    gas_hod_parameterized,
+    detect_water_drive_from_pz,
+)
+from .gas_aquifer import linear_aquifer_we_gas, gas_linear_aquifer_diagnostic
+from .roach import roach_alpha_beta, roach_fit
+from .gas_tight import stabilization_time_radial, stabilization_time_fractured

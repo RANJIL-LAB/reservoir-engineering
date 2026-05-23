@@ -9,6 +9,7 @@ from ui.results import render_results
 from ui.rp_sensitivity import render_rp_sensitivity
 from ui.sidebar import render_sidebar
 from ui.time_series import render_time_series
+from ui.prediction_ui import render_prediction
 
 st.set_page_config(
     page_title="Reservoir Engineering MBE Tool",
@@ -63,6 +64,7 @@ def _hydrate_from_query_params():
         "water_drive_active": "sidebar_water_drive",
         "gas_cap_active": "sidebar_gas_cap",
         "expansion_active": "sidebar_expansion",
+        "mode": "app_mode",
     }
     sidebar_bool = {"sidebar_water_drive", "sidebar_gas_cap", "sidebar_expansion"}
 
@@ -79,6 +81,10 @@ def _hydrate_from_query_params():
         "Saturated": "Saturated Reservoir (p ≤ pb)",
         "unsaturated": "Unsaturated Reservoir (p > pb)",
         "Unsaturated": "Unsaturated Reservoir (p > pb)",
+    }
+    sidebar_mode_map = {
+        "solver": "MBE Solver",
+        "prediction": "Performance Prediction",
     }
 
     for param_key, param_val_list in params.items():
@@ -97,6 +103,8 @@ def _hydrate_from_query_params():
                 )
             elif ss_key in sidebar_bool:
                 st.session_state[ss_key] = val.lower() == "true"
+            elif ss_key == "app_mode":
+                st.session_state[ss_key] = sidebar_mode_map.get(val, "MBE Solver")
             else:
                 st.session_state[ss_key] = val
             continue
@@ -123,6 +131,13 @@ auto_calculate = _hydrate_from_query_params()
 st.title("Reservoir Engineering: Material Balance Equation (MBE) Solver")
 st.markdown("---")
 
+mode = st.radio(
+    "Mode", ["MBE Solver", "Performance Prediction"], horizontal=True, key="app_mode"
+)
+
+if mode == "Performance Prediction":
+    render_prediction()
+    st.stop()
 config = render_sidebar()
 target_var = config["target_var"]
 fluid_type = config["fluid_type"]

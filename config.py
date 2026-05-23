@@ -87,6 +87,16 @@ var_info = {
         "default": 0.0,
         "format": "%.2f",
     },
+    "Z": {
+        "label": "Z – Gas Deviation Factor (dimensionless)",
+        "default": 0.8,
+        "format": "%.4f",
+    },
+    "p": {
+        "label": "p – Reservoir Pressure (psi)",
+        "default": 3000.0,
+        "format": "%.0f",
+    },
 }
 
 all_vars = list(var_info.keys())

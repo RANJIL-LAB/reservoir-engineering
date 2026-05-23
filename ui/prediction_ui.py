@@ -19,7 +19,7 @@ from models.saturation import compute_oil_saturation, compute_gas_saturation
 from models.relative_permeability import RelpermInterpolator
 
 
-def render_prediction_page():
+def render_prediction():
     st.title("Reservoir Performance Prediction")
     st.markdown(
         "Tracy's method — predicts Np, Gp, GOR, So, Sg vs pressure for solution-gas-drive reservoirs."
@@ -453,7 +453,3 @@ def render_prediction_page():
             st.markdown("**Insights from Prediction:**")
             for ins in insights:
                 st.markdown(f"- {ins}")
-
-
-if __name__ == "__main__":
-    render_prediction_page()

@@ -28,8 +28,8 @@ def render_manual_time_series_table(
     analogous to the previous file-upload path, so the calling code can pass
     the result directly into render_time_series.
     """
-    if fluid_type != "oil":
-        return {"df": None, "col_map": {}}
+    if fluid_type == "gas":
+        return _render_gas_time_series_table(var_info)
 
     with st.expander(
         "📊 Optional: Time-Series Data for Havlena-Odeh & Pressure Plots",
@@ -77,6 +77,46 @@ def render_manual_time_series_table(
             col_map = {var: var for var in ts_columns}
             return {"df": edited_df, "col_map": col_map}
 
+        return {"df": None, "col_map": {}}
+
+
+def _render_gas_time_series_table(var_info):
+    ts_columns = ["p", "Gp", "Bg", "Wp", "Z"]
+    initial_data = {}
+    for var in ts_columns:
+        default_val = float(var_info.get(var, {}).get("default", 0.0))
+        initial_data[var] = [default_val] * 3
+    initial_df = pd.DataFrame(initial_data)
+    column_config = {}
+    for var in ts_columns:
+        info = var_info.get(var, {})
+        label = info.get("label", var)
+        fmt = info.get("format", "%.2f")
+        column_config[var] = st.column_config.NumberColumn(
+            label,
+            help=label,
+            format=fmt,
+            min_value=0.0,
+        )
+    with st.expander(
+        "📊 Optional: Time-Series Data for Gas Plots",
+        expanded=False,
+    ):
+        st.caption(
+            "Enter multiple rows of time-varying gas data below. Each row "
+            "represents a different time step. Add at least 2 rows to unlock "
+            "p/Z vs Gp, F vs Eg, and Roach plots."
+        )
+        edited_df = st.data_editor(
+            initial_df,
+            num_rows="dynamic",
+            use_container_width=True,
+            column_config=column_config,
+            key="manual_ts_editor_gas",
+        )
+        if edited_df is not None and len(edited_df) > 1:
+            col_map = {var: var for var in ts_columns}
+            return {"df": edited_df, "col_map": col_map}
         return {"df": None, "col_map": {}}
 
 
